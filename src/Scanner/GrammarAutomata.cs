@@ -28,6 +28,14 @@ namespace Elecelf.Hibiki.Scanner
 
     public class GrammarAutomata
     {
+        private enum ParseBlockState
+        {
+            Grammar,
+            Escape,
+            String,
+            Outline,
+        }
+
         /// <summary>
         /// Start state of the automata.
         /// </summary>
@@ -48,8 +56,7 @@ namespace Elecelf.Hibiki.Scanner
             // Look-around 1 char
             char? currentChar = rawString[0];
             char? lookaroundChar = rawString.Length > 1 ? (char?)rawString[1] : null;
-            bool isInGrammarBlock = false;
-            bool isInEscapeBlock = false;
+            var currentBlockState = ParseBlockState.Outline;
             Queue<char?> holdingChars = new Queue<char?>();
 
             uint lookAroundPoint = 1;
