@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 
 namespace Elecelf.Hibiki.Scanner
 {
@@ -59,10 +60,66 @@ namespace Elecelf.Hibiki.Scanner
             var currentBlockState = ParseBlockState.Outline;
             Queue<char?> holdingChars = new Queue<char?>();
 
+            var automata = new GrammarAutomata();
+            var currentState = automata.StartState;
+            Stack<GrammarState> grammarStates = new Stack<GrammarState>();
+
             uint lookAroundPoint = 1;
             for (; lookAroundPoint <= rawString.Length; lookAroundPoint++)
             {
+                // Outline:
+                // On the start state of a automata, or after ending a grammar or a escape block, it's unable to decide a speical state of the automata. It's outline then.
+                // Outline state is a Start State and a Finalize State in a grammar automata.
+                if (currentBlockState == ParseBlockState.Outline)
+                {
 
+                }
+                else if (currentBlockState == ParseBlockState.Escape)
+                {
+
+                }
+                else if (currentBlockState == ParseBlockState.Grammar)
+                {
+
+                }
+                else if (currentBlockState == ParseBlockState.String)
+                {
+
+                }
+
+                // End of char processing.
+                currentChar = lookaroundChar;
+
+                if (lookAroundPoint == rawString.Length)
+                {
+                    // A ETX char used to sign end of a automation. Also close a string state.
+                    lookaroundChar = (char?)3;
+                }
+                else if (lookAroundPoint < rawString.Length)
+                {
+                    lookaroundChar = rawString[(int)lookAroundPoint];
+                }
+                else
+                {
+                    lookaroundChar = null;
+                    break;
+                }
+
+                // Cost off all chars:
+                if (currentChar == null)
+                {
+                    // holding chars are not empty: throw exception.
+                    if (holdingChars.Count > 0)
+                    {
+                        var holdingCharsArray = (from c in holdingChars where c.HasValue && c.Value != (char)3 select c.Value).ToArray();
+                        var holdingCharsString = new string(holdingCharsArray);
+
+                        throw new ParseErrorException("Some chars are not included in a legal state.", "Illegal String", holdingCharsString);
+                    }
+
+                    // or, parse completed.
+                    break;
+                }
             }
             
             return null;
@@ -153,9 +210,17 @@ namespace Elecelf.Hibiki.Scanner
 
     public class ParseErrorException : Exception
     {
+        private readonly Dictionary<string, object> _data = new Dictionary<string, object>();
+        public sealed override IDictionary Data => _data;
+
         public ParseErrorException(string info) : base(info)
         {
 
+        }
+
+        public ParseErrorException(string info, string dataName, object dataValue) : base(info)
+        {
+            Data[dataName] = dataValue;
         }
     }
 }
