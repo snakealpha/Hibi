@@ -35,6 +35,7 @@ namespace Elecelf.Hibiki.Scanner
             Escape,
             String,
             Outline,
+            RawChar,
         }
 
         /// <summary>
@@ -47,10 +48,8 @@ namespace Elecelf.Hibiki.Scanner
         /// </summary>
         /// <param name="rawString">String to be parsed.</param>
         /// <returns>Parsed automata.</returns>
-        public static GrammarAutomata Parse(string rawString)
+        public static GrammarAutomata Parse(string rawString, ScannerContext context)
         {
-            //throw new NotImplementedException();
-
             if(string.IsNullOrEmpty(rawString))
                 throw new ParseErrorException("Raw String is null or empty.");
 
@@ -63,7 +62,7 @@ namespace Elecelf.Hibiki.Scanner
             var automata = new GrammarAutomata();
             var currentState = automata.StartState;
             Stack<GrammarState> grammarStates = new Stack<GrammarState>();
-
+            
             uint lookAroundPoint = 1;
             for (; lookAroundPoint <= rawString.Length; lookAroundPoint++)
             {
@@ -72,19 +71,101 @@ namespace Elecelf.Hibiki.Scanner
                 // Outline state is a Start State and a Finalize State in a grammar automata.
                 if (currentBlockState == ParseBlockState.Outline)
                 {
-
+                    // Raw char "@w" equals to char 'w' no matter w is any key word
+                    if (currentChar == '@')
+                        currentBlockState = ParseBlockState.RawChar;
+                    // Escape format as "%escape word%"
+                    else if (currentChar == '%')
+                    {
+                        currentBlockState = ParseBlockState.Escape;
+                    }
+                    // Grammar format as "{Grammar Name}"
+                    else if (currentChar == '{')
+                    {
+                        currentBlockState = ParseBlockState.Grammar;
+                    }
+                    // Flow control: branch
+                    else if (currentChar == '|')
+                    {
+                        // Automata Branch!!!
+                    }
+                    // Flow control: kleen star
+                    else if (currentChar == '*')
+                    {
+                        // Kleen Star!!!
+                    }
+                    // Other: string
+                    else
+                    {
+                        holdingChars.Enqueue(currentChar);
+                        currentBlockState = ParseBlockState.String;
+                    }
+                    
+                }
+                else if (currentBlockState == ParseBlockState.RawChar)
+                {
+                    holdingChars.Enqueue(currentChar);
+                    currentBlockState = ParseBlockState.String;
                 }
                 else if (currentBlockState == ParseBlockState.Escape)
                 {
+                    if (currentChar == '%')
+                    {
+                        var holdingString = MakeStringFromQueue(holdingChars);
+                        holdingChars.Clear();
+                        currentState = GrammarState(new EscapeTransferCondition() { EscapeLiteral = holdingString }, currentState, grammarStates);
 
+                        currentBlockState = ParseBlockState.Outline;
+                    }
+                    else
+                    {
+                        holdingChars.Enqueue(currentChar);
+                    }
                 }
                 else if (currentBlockState == ParseBlockState.Grammar)
                 {
+                    if (currentChar == '}')
+                    {
+                        var holdingString = MakeStringFromQueue(holdingChars);
+                        holdingChars.Clear();
+                        currentState = GrammarState(new SymolTransferCondition() { CompareReference = context.SymolHost.GetSymol(holdingString) }, currentState, grammarStates);
 
+                        currentBlockState = ParseBlockState.Outline;
+                    }
+                    else
+                    {
+                        holdingChars.Enqueue(currentChar);
+                    }
                 }
                 else if (currentBlockState == ParseBlockState.String)
                 {
+                    if (currentChar == '@')
+                        currentBlockState = ParseBlockState.RawChar;
+                    else
+                    {
+                        // While a string end with a kleen star, only last char should be repeated.
+                        // Since then, last char should be splited from the string, and make a string to two different string transfers.
+                        if (lookaroundChar == '*')
+                        {
+                            var holdingString = MakeStringFromQueue(holdingChars);
+                            holdingChars.Clear();
+                            currentState = GrammarState(new StringTransferCondition() { CompareReference = holdingString }, currentState, grammarStates);
+                        }
 
+                        holdingChars.Enqueue(currentChar);
+
+                        if (lookaroundChar == '{' ||
+                            lookaroundChar == '%' ||
+                            lookaroundChar == '|' ||
+                            lookaroundChar == '*')
+                        {
+                            var holdingString = MakeStringFromQueue(holdingChars);
+                            holdingChars.Clear();
+                            currentState = GrammarState(new StringTransferCondition() { CompareReference = holdingString }, currentState, grammarStates);
+
+                            currentBlockState = ParseBlockState.Outline;
+                        }
+                    }
                 }
 
                 // End of char processing.
@@ -111,8 +192,7 @@ namespace Elecelf.Hibiki.Scanner
                     // holding chars are not empty: throw exception.
                     if (holdingChars.Count > 0)
                     {
-                        var holdingCharsArray = (from c in holdingChars where c.HasValue && c.Value != (char)3 select c.Value).ToArray();
-                        var holdingCharsString = new string(holdingCharsArray);
+                        var holdingCharsString = MakeStringFromQueue(holdingChars);
 
                         throw new ParseErrorException("Some chars are not included in a legal state.", "Illegal String", holdingCharsString);
                     }
@@ -122,7 +202,28 @@ namespace Elecelf.Hibiki.Scanner
                 }
             }
             
-            return null;
+            return automata;
+        }
+
+        private static GrammarState GrammarState(TransferCondition condition, GrammarState currentState,
+            Stack<GrammarState> grammarStates)
+        {
+            TransferCondition transferCondition = condition;
+            var newState = new GrammarState();
+            var newTransfer = new GrammarTransfer()
+            {
+                TransfedState = newState,
+                TransferCondition = transferCondition
+            };
+            currentState.Transfers.Add(newTransfer);
+            grammarStates.Push(currentState);
+            return newState;
+        }
+
+        private static string MakeStringFromQueue(Queue<char?> queue)
+        {
+            var holdingCharsArray = (from c in queue where c.HasValue && c.Value != (char)3 select c.Value).ToArray();
+            return new string(holdingCharsArray);
         }
     }
 
@@ -164,6 +265,8 @@ namespace Elecelf.Hibiki.Scanner
         }
     }
 
+    // Transfer Conditions
+
     public abstract class TransferCondition
     {
         public abstract bool Pass(Token word, ScannerContext context);
@@ -203,6 +306,29 @@ namespace Elecelf.Hibiki.Scanner
         public override bool Pass(Token word, ScannerContext context)
         {
             return this.CompareReference == word.Literal;
+        }
+    }
+
+    public class EscapeTransferCondition : TransferCondition
+    {
+        public string EscapeLiteral { get; set; }
+
+        public override bool Pass(Token word, ScannerContext context)
+        {
+            bool hasMatchList = context.EscapeMap.TryGetValue(EscapeLiteral, out var matchList);
+
+            if (hasMatchList)
+            {
+                foreach(var item in matchList)
+                    if (word.Literal == item)
+                        return true;
+
+                return false;
+            }
+            else
+            {
+                return false;
+            }
         }
     }
 

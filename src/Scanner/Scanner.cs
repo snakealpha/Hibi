@@ -14,5 +14,13 @@ namespace Elecelf.Hibiki.Scanner
     {
         private readonly SymolHelper _symolHost = new SymolHelper();
         public SymolHelper SymolHost => _symolHost;
+
+        public readonly Dictionary<string, string[]> EscapeMap = new Dictionary<string, string[]>()
+        {
+            {@"nl" , new []{"\r\n", "\n"}},
+            {@"w", new []{" ", "\t"}},
+            {@"n", new []{"\n"}},
+            {@"t", new []{"\t"}},
+        };
     }
 }
