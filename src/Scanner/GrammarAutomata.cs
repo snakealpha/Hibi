@@ -36,6 +36,16 @@ namespace Elecelf.Hibiki.Scanner
             String,
             Outline,
             RawChar,
+            // used for OR operator and Kleen Star
+            OR,
+            KleenStar,
+        }
+
+        private struct ScannerToken
+        {
+            public string Literal;
+            public ParseBlockState TransferType;
+            public int GroupLevel;
         }
 
         /// <summary>
@@ -60,9 +70,11 @@ namespace Elecelf.Hibiki.Scanner
             Queue<char?> holdingChars = new Queue<char?>();
 
             var automata = new GrammarAutomata();
-            var currentState = automata.StartState;
-            Stack<GrammarState> grammarStates = new Stack<GrammarState>();
+
+            List<ScannerToken> tokens = new List<ScannerToken>();
+            int currentGroupLevel = 0;
             
+            // Phase 1: Make string to tokens and make the collection of tokens.
             uint lookAroundPoint = 1;
             for (; lookAroundPoint <= rawString.Length; lookAroundPoint++)
             {
@@ -87,12 +99,32 @@ namespace Elecelf.Hibiki.Scanner
                     // Flow control: branch
                     else if (currentChar == '|')
                     {
-                        // Automata Branch!!!
+                        tokens.Add(new ScannerToken()
+                        {
+                            GroupLevel = currentGroupLevel,
+                            TransferType = ParseBlockState.OR,
+                        });
                     }
                     // Flow control: kleen star
                     else if (currentChar == '*')
                     {
-                        // Kleen Star!!!
+                        tokens.Add(new ScannerToken()
+                        {
+                            GroupLevel = currentGroupLevel,
+                            TransferType = ParseBlockState.KleenStar,
+                        });
+                    }
+                    // Change group level which is used to recongnize sub group
+                    else if (currentChar == '(')
+                    {
+                        currentGroupLevel++;
+                    }
+                    else if (currentChar == ')')
+                    {
+                        if(currentGroupLevel == 0)
+                            throw new ParseErrorException("Group dose not have a begin position.");
+
+                        currentGroupLevel--;
                     }
                     // Other: string
                     else
@@ -113,7 +145,13 @@ namespace Elecelf.Hibiki.Scanner
                     {
                         var holdingString = MakeStringFromQueue(holdingChars);
                         holdingChars.Clear();
-                        currentState = GrammarState(new EscapeTransferCondition() { EscapeLiteral = holdingString }, currentState, grammarStates);
+                        //currentState = TransferState(new EscapeTransferCondition() { EscapeLiteral = holdingString }, currentState, grammarStates);
+                        tokens.Add(new ScannerToken()
+                        {
+                            GroupLevel = currentGroupLevel,
+                            TransferType = ParseBlockState.Escape,
+                            Literal = holdingString,
+                        });
 
                         currentBlockState = ParseBlockState.Outline;
                     }
@@ -128,7 +166,13 @@ namespace Elecelf.Hibiki.Scanner
                     {
                         var holdingString = MakeStringFromQueue(holdingChars);
                         holdingChars.Clear();
-                        currentState = GrammarState(new SymolTransferCondition() { CompareReference = context.SymolHost.GetSymol(holdingString) }, currentState, grammarStates);
+                        //currentState = TransferState(new SymolTransferCondition() { CompareReference = context.SymolHost.GetSymol(holdingString) }, currentState, grammarStates);
+                        tokens.Add(new ScannerToken()
+                        {
+                            GroupLevel = currentGroupLevel,
+                            TransferType = ParseBlockState.Grammar,
+                            Literal = holdingString,
+                        });
 
                         currentBlockState = ParseBlockState.Outline;
                     }
@@ -149,7 +193,13 @@ namespace Elecelf.Hibiki.Scanner
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
                             holdingChars.Clear();
-                            currentState = GrammarState(new StringTransferCondition() { CompareReference = holdingString }, currentState, grammarStates);
+                            //currentState = TransferState(new StringTransferCondition() { CompareReference = holdingString }, currentState, grammarStates);
+                            tokens.Add(new ScannerToken()
+                            {
+                                GroupLevel = currentGroupLevel,
+                                TransferType = ParseBlockState.String,
+                                Literal = holdingString,
+                            });
                         }
 
                         holdingChars.Enqueue(currentChar);
@@ -157,11 +207,18 @@ namespace Elecelf.Hibiki.Scanner
                         if (lookaroundChar == '{' ||
                             lookaroundChar == '%' ||
                             lookaroundChar == '|' ||
-                            lookaroundChar == '*')
+                            lookaroundChar == '*' ||
+                            lookaroundChar == '(' ||
+                            lookaroundChar == ')' )
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
                             holdingChars.Clear();
-                            currentState = GrammarState(new StringTransferCondition() { CompareReference = holdingString }, currentState, grammarStates);
+                            tokens.Add(new ScannerToken()
+                            {
+                                GroupLevel = currentGroupLevel,
+                                TransferType = ParseBlockState.String,
+                                Literal = holdingString,
+                            });
 
                             currentBlockState = ParseBlockState.Outline;
                         }
@@ -200,12 +257,29 @@ namespace Elecelf.Hibiki.Scanner
                     // or, parse completed.
                     break;
                 }
+
+                // Phase 2: Make tokens to automata.
+                var (endState, _) = ParseTokens(tokens, 0, automata.StartState);
             }
             
             return automata;
         }
 
-        private static GrammarState GrammarState(TransferCondition condition, GrammarState currentState,
+        /// <summary>
+        /// Construct a part of grammar automata from a collection of tokens.
+        /// </summary>
+        /// <param name="tokens">Tokens to be parsed.</param>
+        /// <param name="startPosition">Start position of this sub automata in token list.</param>
+        /// <param name="sourceState">Start state of this grammar automata.</param>
+        /// <returns>1- Finialize state of this grammar automata; 2- Start position of next state of current state.</returns>
+        private static (GrammarState, uint) ParseTokens(IList<ScannerToken> tokens, uint startPosition, GrammarState sourceState)
+        {
+            throw new NotImplementedException();
+        }
+
+        private static GrammarState TransferState(
+            TransferCondition condition, 
+            GrammarState currentState,
             Stack<GrammarState> grammarStates)
         {
             TransferCondition transferCondition = condition;
