@@ -2,9 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml;
 
 namespace Elecelf.Hibiki.Scanner
 {
@@ -57,10 +54,23 @@ namespace Elecelf.Hibiki.Scanner
         /// Parse a string to a automata.
         /// </summary>
         /// <param name="rawString">String to be parsed.</param>
+        /// <param name="context">Parse context.</param>
         /// <returns>Parsed automata.</returns>
         public static GrammarAutomata Parse(string rawString, ScannerContext context)
         {
-            if(string.IsNullOrEmpty(rawString))
+            var automata = new GrammarAutomata();
+
+            // Phase 1: Make string to tokens and make the collection of tokens.
+            var tokens = ParseTokens(rawString);
+
+            // Phase 2: Make tokens to automata.
+            var (endState, _) = ParseTokens(tokens, 0, automata.StartState, context);
+
+            return automata;
+        }
+        private static IList<ScannerToken> ParseTokens(string rawString)
+        {
+            if (string.IsNullOrEmpty(rawString))
                 throw new ParseErrorException("Raw String is null or empty.");
 
             // Look-around 1 char
@@ -69,12 +79,11 @@ namespace Elecelf.Hibiki.Scanner
             var currentBlockState = ParseBlockState.Outline;
             Queue<char?> holdingChars = new Queue<char?>();
 
-            var automata = new GrammarAutomata();
 
             List<ScannerToken> tokens = new List<ScannerToken>();
             int currentGroupLevel = 0;
+
             
-            // Phase 1: Make string to tokens and make the collection of tokens.
             uint lookAroundPoint = 1;
             for (; lookAroundPoint <= rawString.Length; lookAroundPoint++)
             {
@@ -121,7 +130,7 @@ namespace Elecelf.Hibiki.Scanner
                     }
                     else if (currentChar == ')')
                     {
-                        if(currentGroupLevel == 0)
+                        if (currentGroupLevel == 0)
                             throw new ParseErrorException("Group dose not have a begin position.");
 
                         currentGroupLevel--;
@@ -132,7 +141,7 @@ namespace Elecelf.Hibiki.Scanner
                         holdingChars.Enqueue(currentChar);
                         currentBlockState = ParseBlockState.String;
                     }
-                    
+
                 }
                 else if (currentBlockState == ParseBlockState.RawChar)
                 {
@@ -145,7 +154,7 @@ namespace Elecelf.Hibiki.Scanner
                     {
                         var holdingString = MakeStringFromQueue(holdingChars);
                         holdingChars.Clear();
-                        //currentState = TransferState(new EscapeTransferCondition() { EscapeLiteral = holdingString }, currentState, grammarStates);
+
                         tokens.Add(new ScannerToken()
                         {
                             GroupLevel = currentGroupLevel,
@@ -166,7 +175,7 @@ namespace Elecelf.Hibiki.Scanner
                     {
                         var holdingString = MakeStringFromQueue(holdingChars);
                         holdingChars.Clear();
-                        //currentState = TransferState(new SymolTransferCondition() { CompareReference = context.SymolHost.GetSymol(holdingString) }, currentState, grammarStates);
+
                         tokens.Add(new ScannerToken()
                         {
                             GroupLevel = currentGroupLevel,
@@ -193,7 +202,7 @@ namespace Elecelf.Hibiki.Scanner
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
                             holdingChars.Clear();
-                            //currentState = TransferState(new StringTransferCondition() { CompareReference = holdingString }, currentState, grammarStates);
+
                             tokens.Add(new ScannerToken()
                             {
                                 GroupLevel = currentGroupLevel,
@@ -209,7 +218,7 @@ namespace Elecelf.Hibiki.Scanner
                             lookaroundChar == '|' ||
                             lookaroundChar == '*' ||
                             lookaroundChar == '(' ||
-                            lookaroundChar == ')' )
+                            lookaroundChar == ')')
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
                             holdingChars.Clear();
@@ -257,12 +266,9 @@ namespace Elecelf.Hibiki.Scanner
                     // or, parse completed.
                     break;
                 }
-
-                // Phase 2: Make tokens to automata.
-                var (endState, _) = ParseTokens(tokens, 0, automata.StartState);
             }
-            
-            return automata;
+
+            return tokens;
         }
 
         /// <summary>
@@ -272,7 +278,7 @@ namespace Elecelf.Hibiki.Scanner
         /// <param name="startPosition">Start position of this sub automata in token list.</param>
         /// <param name="sourceState">Start state of this grammar automata.</param>
         /// <returns>1- Finialize state of this grammar automata; 2- Start position of next state of current state.</returns>
-        private static (GrammarState, uint) ParseTokens(IList<ScannerToken> tokens, uint startPosition, GrammarState sourceState)
+        private static (GrammarState, uint) ParseTokens(IList<ScannerToken> tokens, uint startPosition, GrammarState sourceState, ScannerContext context)
         {
             throw new NotImplementedException();
         }
