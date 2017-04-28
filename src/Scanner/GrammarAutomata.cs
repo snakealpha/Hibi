@@ -252,7 +252,7 @@ namespace Elecelf.Hibiki.Scanner
                     break;
                 }
 
-                // Cost off all chars:
+                // cost all chars:
                 if (currentChar == null)
                 {
                     // holding chars are not empty: throw exception.
@@ -277,10 +277,55 @@ namespace Elecelf.Hibiki.Scanner
         /// <param name="tokens">Tokens to be parsed.</param>
         /// <param name="startPosition">Start position of this sub automata in token list.</param>
         /// <param name="sourceState">Start state of this grammar automata.</param>
-        /// <returns>1- Finialize state of this grammar automata; 2- Start position of next state of current state.</returns>
-        private static (GrammarState, uint) ParseTokens(IList<ScannerToken> tokens, uint startPosition, GrammarState sourceState, ScannerContext context)
+        /// <returns>1- Sub automata parsed from this token collection; 2- Start position of next state of current state.</returns>
+        private static (SubGrammarAutomata, int) ParseTokens(IList<ScannerToken> tokens, int startPosition, GrammarState sourceState, ScannerContext context)
         {
-            throw new NotImplementedException();
+            var baseGroupLevel = tokens[startPosition].GroupLevel;
+            var currentPosition = startPosition;
+            ScannerToken currentToken;
+            var currentState = sourceState;
+            List<SubGrammarAutomata> subAutomatas = new List<SubGrammarAutomata>();
+
+            while (currentPosition<tokens.Count)
+            {
+                currentToken = tokens[currentPosition];
+
+                if (currentToken.GroupLevel > baseGroupLevel)
+                {
+                    // Token has higher group level: this token is in a inner layer of group.
+                    // Get a sub automata of later tokens.
+                    (SubGrammarAutomata subAutomata, int newPosition) =
+                    ParseTokens(tokens, currentPosition, currentState, context);
+
+                    currentPosition = newPosition;
+                    currentState = subAutomata.EndState;
+                    subAutomatas.Add(subAutomata);
+                }
+                else if (currentToken.GroupLevel<baseGroupLevel)
+                {
+                    // Token has lower group level: current group is ended.
+                    // Return current parsed automata.
+                    return (new SubGrammarAutomata()
+                    {
+                        StartState = sourceState,
+                        EndState = currentState
+                    }, currentPosition);
+                }
+                else
+                {
+                    
+                }
+
+                // Add current position
+                currentPosition++;
+            }
+
+            // Return when used up all tokens.
+            return (new SubGrammarAutomata()
+            {
+                StartState = sourceState,
+                EndState = currentState
+            }, currentPosition);
         }
 
         private static GrammarState TransferState(
@@ -334,6 +379,15 @@ namespace Elecelf.Hibiki.Scanner
         }
     }
 
+    /// <summary>
+    /// A sub automata is a part of a whole grammar automata.
+    /// </summary>
+    public class SubGrammarAutomata
+    {
+        public GrammarState StartState;
+        public GrammarState EndState;
+    }
+
     public class GrammarTransfer
     {
         public TransferCondition TransferCondition { get; set; }
@@ -372,7 +426,7 @@ namespace Elecelf.Hibiki.Scanner
 
         public override bool Pass(Token word, ScannerContext context)
         {
-            return this.CompareReference == word.Grammer.Symol;
+            return CompareReference == word.Grammer.Symol;
         }
     }
 
