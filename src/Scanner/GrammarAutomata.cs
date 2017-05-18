@@ -291,7 +291,7 @@ namespace Elecelf.Hibiki.Scanner
             var currentPosition = startPosition;
             ScannerToken currentToken;
             var currentState = sourceState;
-            List<SubGrammarAutomata> subAutomatas = new List<SubGrammarAutomata>();
+            GrammarState orEndState = null;
 
             var currentSubAutomata = new SubGrammarAutomata()
             {
@@ -315,13 +315,22 @@ namespace Elecelf.Hibiki.Scanner
 
                     currentPosition = newPosition;
                     currentState = subAutomata.EndState;
-                    subAutomatas.Add(subAutomata);
                     currentSubAutomata.EndState = subAutomata.EndState;
                 }
                 else if (currentToken.GroupLevel<baseGroupLevel)
                 {
                     // Token has lower group level: current group is ended.
                     // Return current parsed automata.
+
+                    // If it is a branch automata, complete this automata firstly.
+                    if (currentSubAutomataType == SubGrammarAutomata.SubGrammarAutomataType.OR)
+                    {
+                        currentState = TransferState(
+                            new EpsilonTransferCondition(),
+                            currentState,
+                            orEndState);
+                    }
+
                     return (new SubGrammarAutomata()
                     {
                         StartState = sourceState,
@@ -358,17 +367,51 @@ namespace Elecelf.Hibiki.Scanner
                     // Branch or kleen star Automata
                     else if (currentToken.TransferType == ParseBlockState.KleenStar)
                     {
-                        var lastSubAutomata = subAutomatas[subAutomatas.Count - 1];
-                        ReplaceState(lastSubAutomata, lastSubAutomata.EndState, lastSubAutomata.StartState, context);
+                        //var lastSubAutomata = subAutomatas[subAutomatas.Count - 1];
+                        //ReplaceState(lastSubAutomata, lastSubAutomata.EndState, lastSubAutomata.StartState, context);
+
+                        currentSubAutomata.EndState.Transfers.Add(new GrammarTransfer()
+                        {
+                            TransfedState = currentSubAutomata.StartState,
+                            TransferCondition = new EpsilonTransferCondition()
+                        });
+                        currentSubAutomata.EndState.Transfers.Add(new GrammarTransfer()
+                        {
+                            TransfedState = currentSubAutomata.StartState,
+                            TransferCondition = new EpsilonTransferCondition()
+                        });
                     }
                     else if (currentToken.TransferType == ParseBlockState.OR)
                     {
+                        currentSubAutomataType = SubGrammarAutomata.SubGrammarAutomataType.OR;
+                        if(orEndState == null)
+                            orEndState = new GrammarState();
 
+                        TransferState(
+                            new EpsilonTransferCondition(),
+                            currentState,
+                            orEndState);
+
+                        currentState = sourceState;
+                        currentSubAutomata = new SubGrammarAutomata()
+                        {
+                            StartState = sourceState,
+                            EndState = currentState,
+                            GroupLevel = baseGroupLevel,
+                        };
                     }
                 }
 
                 // Add current position
                 currentPosition++;
+            }
+
+            if (currentSubAutomataType == SubGrammarAutomata.SubGrammarAutomataType.OR)
+            {
+                currentState = TransferState(
+                    new EpsilonTransferCondition(),
+                    currentState,
+                    orEndState);
             }
 
             // Return when used up all tokens.
@@ -628,3 +671,12 @@ namespace Elecelf.Hibiki.Scanner
         }
     }
 }
+
+
+
+///
+/// Note
+/// 2017/5/18
+/// 是否需要从扫描器自动机中去除ε？
+/// 考虑到最终需要构建转移表，似乎没有这种必要。然而如果允许直接通过自动机构建前端，ε会带来额外的麻烦。
+/// --暂且制作一个用以从自动机中去除ε的方法，但是暂时不在ParseToken方法中使用。
