@@ -25,8 +25,11 @@ namespace Elecelf.Hibiki.Scanner
         /// <returns>Symol object</returns>
         public Symol GetSymol(string name)
         {
-            if(!_nameToSymolMap.ContainsKey(name))
-                _nameToSymolMap[name] = new Symol(name, _currentAssignedSymolSerial++);
+            lock (this)
+            {
+                if (!_nameToSymolMap.ContainsKey(name))
+                    _nameToSymolMap[name] = new Symol(name, _currentAssignedSymolSerial++);
+            }
             return _nameToSymolMap[name];
         }
     }
