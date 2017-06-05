@@ -59,7 +59,7 @@ namespace Elecelf.Hibiki.Scanner
         /// <param name="rawString">String to be parsed.</param>
         /// <param name="context">Parse context.</param>
         /// <returns>Parsed automata.</returns>
-        public static GrammarAutomata Parse(string rawString, ScannerContext context)
+        public static GrammarAutomata Parse(string rawString, bool trimEpsilon, ScannerContext context)
         {
             var automata = new GrammarAutomata();
 
@@ -67,7 +67,11 @@ namespace Elecelf.Hibiki.Scanner
             var tokens = ParseString(rawString);
 
             // Phase 2: Make tokens to automata.
-            var (endState, _) = ParseTokens(tokens, 0, automata.StartState, context);
+            var (segment, _) = ParseTokens(tokens, 0, automata.StartState, context);
+
+            // Phase3: Trim epsilon transfers from automata.
+            if(trimEpsilon)
+                TrimEpsilon(segment, context);
 
             return automata;
         }
@@ -448,7 +452,7 @@ namespace Elecelf.Hibiki.Scanner
 
         private static void ReplaceState(IGrammarAutomataSegment segment, GrammarState fromState, GrammarState toState, ScannerContext context)
         {
-            var symol = context.SymolHost.GetSymol("rs_"+Thread.CurrentThread.ManagedThreadId);
+            var symol = context.SymolHost.GetSymol("rs_" + Thread.CurrentThread.ManagedThreadId);
             List<GrammarState> accessedStates = new List<GrammarState>();
             Queue<GrammarState> toAccessQueue = new Queue<GrammarState>();
             toAccessQueue.Enqueue(segment.StartState);
@@ -477,16 +481,82 @@ namespace Elecelf.Hibiki.Scanner
                 state.RemoveAccessibility(symol);
             }
         }
+
+        /// <summary>
+        /// Struct to record epsilon transfers' link list.
+        /// </summary>
+        private struct ReversedEpsilonLink
+        {
+            public GrammarState FromState;
+            public GrammarState ToState;
+            public GrammarTransfer LinkTransfer;
+        }
+
+        /// <summary>
+        /// Struct to trace transfer while traversing grammar automata.
+        /// </summary>
+        private struct AccessPathFrame
+        {
+            public GrammarState State;
+            public int CurrentIndex;
+        }
+
+        private static void TrimEpsilon(IGrammarAutomataSegment segment, ScannerContext context)
+        {
+            // Get all epsilon transfer link-list with reversed info.
+            var traverseSymol = context.SymolHost.GetSymol("te_" + Thread.CurrentThread.ManagedThreadId);
+            List<GrammarState> accessedStates = new List<GrammarState>();
+
+            var processSymol = context.SymolHost.GetSymol("proc_" + Thread.CurrentThread.ManagedThreadId);
+            List<GrammarState> processedStates = new List<GrammarState>();
+
+            var currentState = segment.StartState;
+            var accessPath = new Stack<AccessPathFrame>();
+            accessPath.Push(new AccessPathFrame {State = segment.StartState, CurrentIndex = -1});
+            while (true)
+            {
+                if (accessPath.Count == 0)
+                    break;
+
+                var currentFrame = accessPath.Pop();
+                int toAccessIndex = currentFrame.CurrentIndex + 1;
+                for (; toAccessIndex < currentFrame.State.Transfers.Count; toAccessIndex++)
+                {
+                    var transfer = currentState.Transfers[toAccessIndex];
+
+                    if (transfer.TransferCondition is EpsilonTransferCondition)
+                    {
+                        // TODO Do something record a epsilon transfer link list.
+
+                        
+                    }
+
+                    if (transfer.TransfedState.GetAccessibility(traverseSymol))
+                        continue;
+
+                    transfer.TransfedState.SetAccessibility(traverseSymol);
+                    accessedStates.Add(transfer.TransfedState);
+                    accessPath.Push(new AccessPathFrame { State = transfer.TransfedState, CurrentIndex = -1 });
+                    break;
+                }
+            }
+
+            // Clear states' access state.
+            foreach(var state in accessedStates)
+                state.RemoveAccessibility(traverseSymol);
+            foreach (var state in processedStates)
+                state.RemoveAccessibility(processSymol);
+        }
     }
 
     public class GrammarState
     {
-        private readonly ICollection<GrammarTransfer> _transfers = new List<GrammarTransfer>();
+        private readonly IList<GrammarTransfer> _transfers = new List<GrammarTransfer>();
 
         /// <summary>
         /// Transfers from this state.
         /// </summary>
-        public ICollection<GrammarTransfer> Transfers => _transfers;
+        public IList<GrammarTransfer> Transfers => _transfers;
 
         /// <summary>
         /// Is this state a terminal state?
