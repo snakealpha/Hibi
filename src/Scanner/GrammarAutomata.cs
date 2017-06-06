@@ -549,18 +549,35 @@ namespace Elecelf.Hibiki.Scanner
         //}
     }
 
-    internal class GrammarStateList : IList<GrammarState>
+    internal class GrammarStateTransferList : IList<GrammarTransfer>
     {
         public bool IsDirty = false;
-        private List<GrammarState> innerList;
+        private List<GrammarTransfer> innerList;
 
-        public GrammarStateList() => innerList = new List<GrammarState>();
+        public GrammarStateTransferList() => innerList = new List<GrammarTransfer>();
 
-        public GrammarStateList(IEnumerable<GrammarState> collection) => innerList = new List<GrammarState>(collection);
+        public GrammarStateTransferList(IEnumerable<GrammarTransfer> collection) => innerList = new List<GrammarTransfer>(collection);
 
-        public GrammarStateList(int capacity) => innerList = new List<GrammarState>(capacity);
+        public GrammarStateTransferList(int capacity) => innerList = new List<GrammarTransfer>(capacity);
 
-        public GrammarState this[int index]
+        public int IndexOf(GrammarTransfer item)
+        {
+            return innerList.IndexOf(item);
+        }
+
+        public void Insert(int index, GrammarTransfer item)
+        {
+            IsDirty = true;
+            innerList.Insert(index, item);
+        }
+
+        public void RemoveAt(int index)
+        {
+            IsDirty = true;
+            innerList.RemoveAt(index);
+        }
+
+        public GrammarTransfer this[int index]
         {
             get
             {
@@ -573,24 +590,59 @@ namespace Elecelf.Hibiki.Scanner
             }
         }
 
-        public void Add(GrammarState state)
+        public void Add(GrammarTransfer state)
         {
             IsDirty = true;
             innerList.Add(state);
         }
 
-        public bool Remove(GrammarState state)
+        public void Clear()
+        {
+            IsDirty = true;
+            innerList.Clear();
+        }
+
+        public bool Contains(GrammarTransfer item)
+        {
+            return innerList.Contains(item);
+        }
+
+        public void CopyTo(GrammarTransfer[] array, int arrayIndex)
+        {
+            innerList.CopyTo(array, arrayIndex);
+        }
+
+        public bool Remove(GrammarTransfer state)
         {
             IsDirty = true;
             return innerList.Remove(state);
         }
 
+        public IEnumerator<GrammarTransfer> GetEnumerator()
+        {
+            return innerList.GetEnumerator();
+        }
 
+        public int Count
+        {
+            get =>
+                innerList.Count;
+        }
+
+        public bool IsReadOnly
+        {
+            get => false;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 
     public class GrammarState
     {
-        private readonly IList<GrammarTransfer> _transfers = new List<GrammarTransfer>();
+        private readonly IList<GrammarTransfer> _transfers = new GrammarStateTransferList();
 
         /// <summary>
         /// Transfers from this state.
