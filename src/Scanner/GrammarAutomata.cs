@@ -1,8 +1,5 @@
-﻿using System;
-using System.CodeDom;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Linq;
 using System.Threading;
 
@@ -451,107 +448,11 @@ namespace Elecelf.Hibiki.Scanner
             var holdingCharsArray = (from c in queue where c.HasValue && c.Value != FinializeSymbol select c.Value).ToArray();
             return new string(holdingCharsArray);
         }
-
-        private static void ReplaceState(IGrammarAutomataSegment segment, GrammarState fromState, GrammarState toState, ScannerContext context)
-        {
-            var symol = context.SymolHost.GetSymol("rs_" + Thread.CurrentThread.ManagedThreadId);
-            List<GrammarState> accessedStates = new List<GrammarState>();
-            Queue<GrammarState> toAccessQueue = new Queue<GrammarState>();
-            toAccessQueue.Enqueue(segment.StartState);
-            while (toAccessQueue.Count > 0)
-            {
-                var state = toAccessQueue.Dequeue();
-                foreach (var transfer in state.Transfers)
-                {
-                    var transfedState = transfer.TransfedState;
-                    if (transfedState != segment.EndState)
-                        if (!transfedState.GetAccessibility(symol))
-                        {
-                            toAccessQueue.Enqueue(transfedState);
-                        }
-
-                    if (transfer.TransfedState == fromState)
-                        transfer.TransfedState = toState;
-                }
-
-                state.SetAccessibility(symol);
-                accessedStates.Add(state);
-            }
-
-            foreach (var state in accessedStates)
-            {
-                state.RemoveAccessibility(symol);
-            }
-        }
-
-        ///// <summary>
-        ///// Struct to record epsilon transfers' link list.
-        ///// </summary>
-        //private struct ReversedEpsilonLink
-        //{
-        //    public GrammarState FromState;
-        //    public GrammarState ToState;
-        //    public GrammarTransfer LinkTransfer;
-        //}
-
-        ///// <summary>
-        ///// Struct to trace transfer while traversing grammar automata.
-        ///// </summary>
-        //private struct AccessPathFrame
-        //{
-        //    public GrammarState State;
-        //    public int CurrentIndex;
-        //}
-
-        //private static void TrimEpsilon(IGrammarAutomataSegment segment, ScannerContext context)
-        //{
-        //    // Get all epsilon transfer link-list with reversed info.
-        //    var traverseSymol = context.SymolHost.GetSymol("te_" + Thread.CurrentThread.ManagedThreadId);
-        //    List<GrammarState> accessedStates = new List<GrammarState>();
-
-        //    var processSymol = context.SymolHost.GetSymol("proc_" + Thread.CurrentThread.ManagedThreadId);
-        //    List<GrammarState> processedStates = new List<GrammarState>();
-
-        //    var currentState = segment.StartState;
-        //    var accessPath = new Stack<AccessPathFrame>();
-        //    accessPath.Push(new AccessPathFrame {State = segment.StartState, CurrentIndex = -1});
-        //    while (true)
-        //    {
-        //        if (accessPath.Count == 0)
-        //            break;
-
-        //        var currentFrame = accessPath.Pop();
-        //        int toAccessIndex = currentFrame.CurrentIndex + 1;
-        //        for (; toAccessIndex < currentFrame.State.Transfers.Count; toAccessIndex++)
-        //        {
-        //            var transfer = currentState.Transfers[toAccessIndex];
-
-        //            if (transfer.TransferCondition is EpsilonTransferCondition)
-        //            {
-        //                // TODO Do something record a epsilon transfer link list.
-        //            }
-
-        //            if (transfer.TransfedState.GetAccessibility(traverseSymol))
-        //                continue;
-
-        //            transfer.TransfedState.SetAccessibility(traverseSymol);
-        //            accessedStates.Add(transfer.TransfedState);
-        //            accessPath.Push(new AccessPathFrame { State = transfer.TransfedState, CurrentIndex = -1 });
-        //            break;
-        //        }
-        //    }
-
-        //    // Clear states' access state.
-        //    foreach(var state in accessedStates)
-        //        state.RemoveAccessibility(traverseSymol);
-        //    foreach (var state in processedStates)
-        //        state.RemoveAccessibility(processSymol);
-        //}
     }
 
     internal class GrammarStateTransferList : IList<GrammarTransfer>
     {
-        public bool IsDirty = false;
+        private HashSet<Symol> notDirtySet = new HashSet<Symol>();
         private List<GrammarTransfer> innerList;
 
         public GrammarStateTransferList() => innerList = new List<GrammarTransfer>();
@@ -567,13 +468,13 @@ namespace Elecelf.Hibiki.Scanner
 
         public void Insert(int index, GrammarTransfer item)
         {
-            IsDirty = true;
+            notDirtySet.Clear();
             innerList.Insert(index, item);
         }
 
         public void RemoveAt(int index)
         {
-            IsDirty = true;
+            notDirtySet.Clear();
             innerList.RemoveAt(index);
         }
 
@@ -586,19 +487,19 @@ namespace Elecelf.Hibiki.Scanner
             set
             {
                 innerList[index] = value;
-                IsDirty = true;
+                notDirtySet.Clear();
             }
         }
 
         public void Add(GrammarTransfer state)
         {
-            IsDirty = true;
+            notDirtySet.Clear();
             innerList.Add(state);
         }
 
         public void Clear()
         {
-            IsDirty = true;
+            notDirtySet.Clear();
             innerList.Clear();
         }
 
@@ -614,7 +515,7 @@ namespace Elecelf.Hibiki.Scanner
 
         public bool Remove(GrammarTransfer state)
         {
-            IsDirty = true;
+            notDirtySet.Clear();
             return innerList.Remove(state);
         }
 
@@ -638,11 +539,21 @@ namespace Elecelf.Hibiki.Scanner
         {
             return GetEnumerator();
         }
+
+        public void ClearDirty(Symol symol)
+        {
+            notDirtySet.Add(symol);
+        }
+
+        public bool IsDirty(Symol symol)
+        {
+            return !notDirtySet.Contains(symol);
+        }
     }
 
     public class GrammarState
     {
-        private readonly IList<GrammarTransfer> _transfers = new GrammarStateTransferList();
+        private readonly GrammarStateTransferList _transfers = new GrammarStateTransferList();
 
         /// <summary>
         /// Transfers from this state.
@@ -707,6 +618,64 @@ namespace Elecelf.Hibiki.Scanner
         }
         #endregion
 
+        #region Receivable
+        private GrammarTransfer[] usableTransfers;
+
+        private void RebuildUsableTransfers()
+        {
+            lock (_transfers)
+            {
+                Symol accessed = new Symol("rut_accessed", 42u, this);
+                if (usableTransfers == null || _transfers.IsDirty(accessed))
+                {
+                    _transfers.ClearDirty(accessed);
+
+                    List<GrammarState> accessedStates = new List<GrammarState>();
+
+                    Queue<GrammarState> states = new Queue<GrammarState>();
+                    states.Enqueue(this);
+
+                    List<GrammarTransfer> usableTransfers = new List<GrammarTransfer>();
+
+                    while (states.Count > 0)
+                    {
+                        var state = states.Dequeue();
+
+                        if (state.GetAccessibility(accessed))
+                            continue;
+
+                        state.SetAccessibility(accessed);
+
+                        foreach (var transfer in state.Transfers)
+                        {
+                            if (transfer.TransferCondition is EpsilonTransferCondition)
+                            {
+                                states.Enqueue(transfer.TransfedState);
+                            }
+                            else
+                            {
+                                usableTransfers.Add(transfer);
+                            }
+                        }
+                    }
+
+                    this.usableTransfers = usableTransfers.ToArray();
+
+                    foreach(var item in accessedStates)
+                        item.RemoveAccessibility(accessed);
+                }
+            }
+        }
+
+        public GrammarTransfer[] UsableTransfers
+        {
+            get
+            {
+                RebuildUsableTransfers();
+                return usableTransfers;
+            }
+        }
+        #endregion
     }
 
     public interface IGrammarAutomataSegment
@@ -749,98 +718,5 @@ namespace Elecelf.Hibiki.Scanner
             return (TransferCondition.Pass(token, context), TransfedState);
         }
     }
-
-    // Transfer Conditions
-
-    public abstract class TransferCondition
-    {
-        public abstract bool Pass(Token word, ScannerContext context);
-    }
-
-    public class EpsilonTransferCondition:TransferCondition
-    {
-        public override bool Pass(Token token, ScannerContext context)
-        {
-            if (token.Grammer.Symol == context.SymolHost.GetSymol("eps"))
-                return true;
-
-            return false;
-        }
-    }
-
-    public class SymolTransferCondition : TransferCondition
-    {
-        public Symol CompareReference
-        {
-            get; set;
-        }
-
-        public override bool Pass(Token word, ScannerContext context)
-        {
-            return CompareReference == word.Grammer.Symol;
-        }
-    }
-
-    public class StringTransferCondition : TransferCondition
-    {
-        public String CompareReference
-        {
-            get; set;
-        }
-
-        public override bool Pass(Token word, ScannerContext context)
-        {
-            return this.CompareReference == word.Literal;
-        }
-    }
-
-    public class EscapeTransferCondition : TransferCondition
-    {
-        public string EscapeLiteral { get; set; }
-
-        public override bool Pass(Token word, ScannerContext context)
-        {
-            bool hasMatchList = context.EscapeMap.TryGetValue(EscapeLiteral, out var matchList);
-
-            if (hasMatchList)
-            {
-                foreach(var item in matchList)
-                    if (word.Literal == item)
-                        return true;
-
-                return false;
-            }
-            else
-            {
-                return false;
-            }
-        }
-    }
-
-    // Exceptions
-
-    public class ParseErrorException : Exception
-    {
-        private readonly Dictionary<string, object> _data = new Dictionary<string, object>();
-        public sealed override IDictionary Data => _data;
-
-        public ParseErrorException(string info) : base(info)
-        {
-
-        }
-
-        public ParseErrorException(string info, string dataName, object dataValue) : base(info)
-        {
-            Data[dataName] = dataValue;
-        }
-    }
 }
 
-
-
-///
-/// Note
-/// 2017/5/18
-/// 是否需要从扫描器自动机中去除ε？
-/// 考虑到最终需要构建转移表，似乎没有这种必要。然而如果允许直接通过自动机构建前端，ε会带来额外的麻烦。
-/// --暂且制作一个用以从自动机中去除ε的方法，但是暂时不在ParseToken方法中使用。
