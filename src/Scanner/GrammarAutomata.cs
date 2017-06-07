@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 
 namespace Elecelf.Hibiki.Scanner
 {
@@ -418,7 +417,7 @@ namespace Elecelf.Hibiki.Scanner
             }
 
             // Return when used up all tokens.
-            currentState.IsTerminal = true;
+            currentState.SelfIsTerminal = true;
             return (new SubGrammarAutomata()
             {
                 StartState = sourceState,
@@ -563,7 +562,7 @@ namespace Elecelf.Hibiki.Scanner
         /// <summary>
         /// Is this state a terminal state?
         /// </summary>
-        public bool IsTerminal { set; get; } = false;
+        public bool SelfIsTerminal { set; get; } = false;
 
         /// <summary>
         /// Input a word to drive the state transfer to next state.
@@ -618,8 +617,9 @@ namespace Elecelf.Hibiki.Scanner
         }
         #endregion
 
-        #region Receivable
+        #region Join epsilon transfers' states
         private GrammarTransfer[] usableTransfers;
+        private bool isTerminal = false;
 
         private void RebuildUsableTransfers()
         {
@@ -635,6 +635,8 @@ namespace Elecelf.Hibiki.Scanner
                     Queue<GrammarState> states = new Queue<GrammarState>();
                     states.Enqueue(this);
 
+                    isTerminal = SelfIsTerminal;
+
                     List<GrammarTransfer> usableTransfers = new List<GrammarTransfer>();
 
                     while (states.Count > 0)
@@ -645,6 +647,8 @@ namespace Elecelf.Hibiki.Scanner
                             continue;
 
                         state.SetAccessibility(accessed);
+
+                        isTerminal = isTerminal | state.SelfIsTerminal;
 
                         foreach (var transfer in state.Transfers)
                         {
@@ -673,6 +677,15 @@ namespace Elecelf.Hibiki.Scanner
             {
                 RebuildUsableTransfers();
                 return usableTransfers;
+            }
+        }
+
+        public bool IsTerminal
+        {
+            get
+            {
+                RebuildUsableTransfers();
+                return isTerminal;
             }
         }
         #endregion
