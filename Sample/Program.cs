@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Elecelf.Hibiki.Scanner;
 
 namespace Elecelf.Hibiki.Sample
 {
@@ -10,6 +6,13 @@ namespace Elecelf.Hibiki.Sample
     {
         static void Main(string[] args)
         {
+            ScannerContext context = new ScannerContext();
+
+            string testText = @"{te}";
+
+            var tokens = GrammarAutomata.Parse(testText, context);
+
+            return;
         }
     }
 }

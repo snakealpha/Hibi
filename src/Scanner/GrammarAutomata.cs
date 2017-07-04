@@ -57,7 +57,7 @@ namespace Elecelf.Hibiki.Scanner
         /// <param name="rawString">String to be parsed.</param>
         /// <param name="context">Parse context.</param>
         /// <returns>Parsed automata.</returns>
-        public static GrammarAutomata Parse(string rawString, bool trimEpsilon, ScannerContext context)
+        public static GrammarAutomata Parse(string rawString, ScannerContext context)
         {
             var automata = new GrammarAutomata();
 
@@ -89,8 +89,8 @@ namespace Elecelf.Hibiki.Scanner
             int currentGroupLevel = 0;
 
             
-            uint lookAroundPoint = 1;
-            for (; lookAroundPoint <= rawString.Length; lookAroundPoint++)
+            uint lookAroundPoint = 2;
+            for (; lookAroundPoint <= rawString.Length + 1; lookAroundPoint++)
             {
                 // Outline:
                 // On the start state of a automata, or after ending a grammar or a escape block, it's unable to decide a speical state of the automata. It's outline then.
