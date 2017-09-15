@@ -152,11 +152,6 @@ namespace Elecelf.Hibiki.Scanner
                     }
 
                 }
-                else if (currentBlockState == ParseBlockState.RawChar)
-                {
-                    holdingChars.Enqueue(currentChar);
-                    currentBlockState = ParseBlockState.String;
-                }
                 else if (currentBlockState == ParseBlockState.Escape)
                 {
                     if (currentChar == '%')
@@ -199,25 +194,28 @@ namespace Elecelf.Hibiki.Scanner
                         holdingChars.Enqueue(currentChar);
                     }
                 }
-                else if (currentBlockState == ParseBlockState.String)
+                else if (currentBlockState == ParseBlockState.String || currentBlockState == ParseBlockState.RawChar)
                 {
-                    if (currentChar == '@')
+                    if (currentBlockState == ParseBlockState.String && currentChar == '@')
                         currentBlockState = ParseBlockState.RawChar;
                     else
                     {
-                        // While a string end with a kleen star, only last char should be repeated.
-                        // Since then, last char should be splited from the string, and make a string to two different string transfers.
-                        if (lookaroundChar == '*')
+                        if (currentBlockState == ParseBlockState.String)
                         {
-                            var holdingString = MakeStringFromQueue(holdingChars);
-                            holdingChars.Clear();
-
-                            tokens.Add(new ScannerToken()
+                            // While a string end with a kleen star, only last char should be repeated.
+                            // Since then, last char should be splited from the string, and make a string to two different string transfers.
+                            if (lookaroundChar == '*')
                             {
-                                GroupLevel = currentGroupLevel + 1,
-                                TransferType = ParseBlockState.String,
-                                Literal = holdingString,
-                            });
+                                var holdingString = MakeStringFromQueue(holdingChars);
+                                holdingChars.Clear();
+
+                                tokens.Add(new ScannerToken()
+                                {
+                                    GroupLevel = currentGroupLevel + 1,
+                                    TransferType = ParseBlockState.String,
+                                    Literal = holdingString,
+                                });
+                            }
                         }
 
                         holdingChars.Enqueue(currentChar);
@@ -260,20 +258,17 @@ namespace Elecelf.Hibiki.Scanner
                     lookaroundChar = null;
                     break;
                 }
+            }
 
-                // cost all chars:
-                if (currentChar == null)
+            // cost all chars:
+            if (currentChar == FinializeSymbol || currentChar == null)
+            {
+                // holding chars are not empty: throw exception.
+                if (holdingChars.Count > 0)
                 {
-                    // holding chars are not empty: throw exception.
-                    if (holdingChars.Count > 0)
-                    {
-                        var holdingCharsString = MakeStringFromQueue(holdingChars);
+                    var holdingCharsString = MakeStringFromQueue(holdingChars);
 
-                        throw new ParseErrorException("Some chars are not included in a legal state.", "Illegal String", holdingCharsString);
-                    }
-
-                    // or, parse completed.
-                    break;
+                    throw new ParseErrorException("Some chars are not included in a legal state.", "Illegal String", holdingCharsString);
                 }
             }
 
