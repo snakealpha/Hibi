@@ -467,6 +467,15 @@ namespace Elecelf.Hibiki.Scanner
             }, currentPosition);
         }
 
+        /// <summary>
+        /// Trim epsilon transfers and duplicated states.
+        /// </summary>
+        /// <param name="startState">Start state of automata to be trimmed. Only states linked after this state will be trimmed.</param>
+        private static void TrimAutomata(GrammarState startState)
+        {
+            // TODO: Trim Method
+        }
+
         private static GrammarState TransferState(
             TransferCondition condition, 
             GrammarState currentState,
@@ -794,3 +803,6 @@ namespace Elecelf.Hibiki.Scanner
     }
 }
 
+/// Memo 2017-9-19
+/// TODO: Backtracing support in a automata graph. In order to support trim function.
+/// TODO: Trim on epsilon transfers and duplicated states.
