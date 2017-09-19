@@ -15,6 +15,9 @@ namespace Elecelf.Hibiki.Scanner
         private readonly SymolHelper _symolHost = new SymolHelper();
         public SymolHelper SymolHost => _symolHost;
 
+        private uint stateCounter = 0;
+        public uint StateCounter => stateCounter;
+
         public readonly Dictionary<string, string[]> EscapeMap = new Dictionary<string, string[]>()
         {
             {@"nl" , new []{"\r\n", "\n"}},
@@ -22,5 +25,10 @@ namespace Elecelf.Hibiki.Scanner
             {@"n", new []{"\n"}},
             {@"t", new []{"\t"}},
         };
+
+        public uint GetNextStateIndex()
+        {
+            return ++stateCounter;
+        }
     }
 }
