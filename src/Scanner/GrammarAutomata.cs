@@ -96,6 +96,8 @@ namespace Elecelf.Hibiki.Scanner
             // Phase 2: Make tokens to automata.
             var (segment, _) = ParseTokens(tokens, 0, automata.StartState, context, grammarName);
 
+            TrimAutomata(automata.StartState);
+
             return automata;
         }
         private static IList<ScannerToken> ParseString(string rawString)
@@ -413,16 +415,16 @@ namespace Elecelf.Hibiki.Scanner
                     // Branch or kleen star Automata
                     else if (currentToken.TransferType == ParseBlockState.KleenStar)
                     {
-                        currentSubAutomata.EndState.Transfers.Add(new GrammarTransfer()
-                        {
-                            TransfedState = lastBlockStartState,
-                            TransferCondition = new EpsilonTransferCondition()
-                        });
-                        lastBlockStartState.Transfers.Add(new GrammarTransfer()
-                        {
-                            TransfedState = lastBlockEndState,
-                            TransferCondition = new EpsilonTransferCondition()
-                        });
+                        System.Diagnostics.Debug.Assert(lastBlockStartState!=null, "Kleen Star Cannot be first token in a grammar.");
+                        
+                        TransferState(
+                            new EpsilonTransferCondition(),
+                            lastBlockStartState,
+                            currentSubAutomata.EndState);
+                        TransferState(
+                            new EpsilonTransferCondition(),
+                            lastBlockEndState,
+                            lastBlockStartState);
                     }
                     else if (currentToken.TransferType == ParseBlockState.OR)
                     {
@@ -487,9 +489,11 @@ namespace Elecelf.Hibiki.Scanner
             var newTransfer = new GrammarTransfer()
             {
                 TransfedState = newState,
-                TransferCondition = transferCondition
+                TransferCondition = transferCondition,
+                BacktraceState = currentState
             };
             currentState.Transfers.Add(newTransfer);
+            newState.Backtransfers.Add(newTransfer);
             return newState;
         }
 
@@ -609,6 +613,13 @@ namespace Elecelf.Hibiki.Scanner
         /// Transfers from this state.
         /// </summary>
         public IList<GrammarTransfer> Transfers => _transfers;
+
+        private readonly  GrammarStateTransferList _backtraceTransfers = new GrammarStateTransferList();
+
+        /// <summary>
+        /// Transfers to this state.
+        /// </summary>
+        public IList<GrammarTransfer> Backtransfers => _backtraceTransfers;
 
         /// <summary>
         /// Is this state a terminal state?
@@ -795,6 +806,7 @@ namespace Elecelf.Hibiki.Scanner
     {
         public TransferCondition TransferCondition { get; set; }
         public GrammarState TransfedState { get; set; }
+        public GrammarState BacktraceState { get; set; }
 
         public (bool, GrammarState) InputWord(Token token, ScannerContext context)
         {
@@ -804,5 +816,4 @@ namespace Elecelf.Hibiki.Scanner
 }
 
 /// Memo 2017-9-19
-/// TODO: Backtracing support in a automata graph. In order to support trim function.
 /// TODO: Trim on epsilon transfers and duplicated states.
