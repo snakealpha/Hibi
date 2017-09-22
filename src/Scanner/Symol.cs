@@ -10,8 +10,8 @@ namespace Elecelf.Hibiki.Scanner
     {
         public SymolHelper()
         {
-            _nameToSymolMap["epsilon"] = new Symol("epsilon", 0);
-            _nameToSymolMap["eps"] = new Symol("eps", 0);
+            _nameToSymolMap["epsilon"] = new Symol("epsilon", 0, null);
+            _nameToSymolMap["eps"] = new Symol("eps", 0, null);
         }
 
         private readonly Dictionary<string, Symol> _nameToSymolMap = new Dictionary<string, Symol>();
@@ -25,24 +25,29 @@ namespace Elecelf.Hibiki.Scanner
         /// <returns>Symol object</returns>
         public Symol GetSymol(string name)
         {
-            if(!_nameToSymolMap.ContainsKey(name))
-                _nameToSymolMap[name] = new Symol(name, _currentAssignedSymolSerial++);
+            lock (this)
+            {
+                if (!_nameToSymolMap.ContainsKey(name))
+                    _nameToSymolMap[name] = new Symol(name, _currentAssignedSymolSerial++, this);
+            }
             return _nameToSymolMap[name];
         }
     }
 
     public struct Symol
     {
-
-        public Symol(string name, uint serial)
+        public Symol(string name, uint serial, object host)
         {
             SymolName = name;
             SymolSerial = serial;
+            SymolHost = host;
         }
 
         public string SymolName { get; }
 
         public uint SymolSerial { get; }
+
+        public object SymolHost { get; }
 
         public override int GetHashCode()
         {
@@ -61,12 +66,12 @@ namespace Elecelf.Hibiki.Scanner
 
         public static bool operator ==(Symol a, Symol b)
         {
-            return a.SymolSerial == b.SymolSerial;
+            return a.SymolHost == b.SymolHost && a.SymolSerial == b.SymolSerial;
         }
 
         public static bool operator !=(Symol a, Symol b)
         {
-            return a.SymolSerial != b.SymolSerial;
+            return a.SymolHost != b.SymolHost || a.SymolSerial != b.SymolSerial;
         }
 
         public static implicit operator uint(Symol a)
