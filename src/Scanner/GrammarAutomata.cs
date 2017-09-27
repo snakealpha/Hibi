@@ -359,7 +359,7 @@ namespace Elecelf.Hibiki.Scanner
                     if (currentSubAutomataType == SubGrammarAutomata.SubGrammarAutomataType.OR)
                     {
                         currentState = TransferState(
-                            new EpsilonTransferCondition(),
+                            EpsilonTransferCondition.Instance,
                             currentState,
                             orEndState);
                     }
@@ -381,7 +381,7 @@ namespace Elecelf.Hibiki.Scanner
                         lastBlockStartState =  currentState;
 
                         currentState = TransferState(
-                            new EscapeTransferCondition() {EscapeLiteral = currentToken.Literal}, 
+                            new EscapeTransferCondition(currentToken.Literal), 
                             currentState,
                             newStateSymol:context.SymolHost.GetSymol("State_"+context.GetNextStateIndex()));
                         currentSubAutomata.EndState = currentState;
@@ -393,7 +393,7 @@ namespace Elecelf.Hibiki.Scanner
                         lastBlockStartState = currentState;
 
                         currentState = TransferState(
-                            new SymolTransferCondition() {CompareReference = context.SymolHost.GetSymol(currentToken.Literal)}, 
+                            new SymolTransferCondition(context.SymolHost.GetSymol(currentToken.Literal)), 
                             currentState,
                             newStateSymol:context.SymolHost.GetSymol("State_"+context.GetNextStateIndex()));
                         currentSubAutomata.EndState = currentState;
@@ -405,7 +405,7 @@ namespace Elecelf.Hibiki.Scanner
                         lastBlockStartState = currentState;
 
                         currentState = TransferState(
-                            new StringTransferCondition() { CompareReference = currentToken.Literal},
+                            new StringTransferCondition(currentToken.Literal),
                             currentState,
                             newStateSymol:context.SymolHost.GetSymol("State_"+context.GetNextStateIndex()));
                         currentSubAutomata.EndState = currentState;
@@ -418,11 +418,11 @@ namespace Elecelf.Hibiki.Scanner
                         System.Diagnostics.Debug.Assert(lastBlockStartState!=null, "Kleen Star Cannot be first token in a grammar.");
                         
                         TransferState(
-                            new EpsilonTransferCondition(),
+                            EpsilonTransferCondition.Instance,
                             lastBlockStartState,
                             currentSubAutomata.EndState);
                         TransferState(
-                            new EpsilonTransferCondition(),
+                            EpsilonTransferCondition.Instance,
                             lastBlockEndState,
                             lastBlockStartState);
                     }
@@ -433,7 +433,7 @@ namespace Elecelf.Hibiki.Scanner
                             orEndState = new GrammarState(context.SymolHost.GetSymol("OR-End_State_"+context.GetNextStateIndex()));
 
                         TransferState(
-                            new EpsilonTransferCondition(),
+                            EpsilonTransferCondition.Instance,
                             currentState,
                             orEndState);
 
@@ -454,7 +454,7 @@ namespace Elecelf.Hibiki.Scanner
             if (currentSubAutomataType == SubGrammarAutomata.SubGrammarAutomataType.OR)
             {
                 currentState = TransferState(
-                    new EpsilonTransferCondition(),
+                    EpsilonTransferCondition.Instance,
                     currentState,
                     orEndState);
             }
@@ -478,6 +478,45 @@ namespace Elecelf.Hibiki.Scanner
             // TODO: Trim Method
         }
 
+
+        /// <summary>
+        /// Remove a transfer. Note that if any other transfers are equipotential to current transfer, they'll be removed all the same.
+        /// </summary>
+        /// <param name="transfer">Transfer which will be removed from automata.</param>
+        private static void RemoveTransfer(GrammarTransfer transfer)
+        {
+            var removeList = new List<GrammarTransfer>();
+
+            // Remove transfer from backtrace state.
+            for(var i = 0; i != transfer.BacktraceState.Transfers.Count;i++)
+                if(transfer.BacktraceState.Transfers[i]==transfer)
+                    removeList.Add(transfer.BacktraceState.Transfers[i]);
+            foreach (var grammarTransfer in removeList)
+            {
+                transfer.BacktraceState.Transfers.Remove(grammarTransfer);
+            }
+
+            // Remove transfer from transfered state.
+            for (var i = 0; i != transfer.TransfedState.Transfers.Count; i++)
+                if (transfer.TransfedState.Transfers[i] == transfer)
+                    removeList.Add(transfer.TransfedState.Transfers[i]);
+            foreach (var grammarTransfer in removeList)
+            {
+                transfer.TransfedState.Transfers.Remove(grammarTransfer);
+            }
+        }
+
+        /// <summary>
+        /// Trim redundant transfers between two states, left only one.
+        /// </summary>
+        /// <param name="transfer"></param>
+        private static void TrimRedundantTransfer(GrammarTransfer transfer)
+        {
+            RemoveTransfer(transfer);
+            transfer.BacktraceState.Transfers.Add(transfer);
+            transfer.TransfedState.Backtransfers.Add(transfer);
+        }
+
         private static GrammarState TransferState(
             TransferCondition condition, 
             GrammarState currentState,
@@ -486,10 +525,9 @@ namespace Elecelf.Hibiki.Scanner
         {
             var transferCondition = condition;
             var newState = targetState ?? (newStateSymol == null? new GrammarState():new GrammarState(newStateSymol.Value));
-            var newTransfer = new GrammarTransfer()
+            var newTransfer = new GrammarTransfer(transferCondition)
             {
                 TransfedState = newState,
-                TransferCondition = transferCondition,
                 BacktraceState = currentState
             };
             currentState.Transfers.Add(newTransfer);
@@ -506,82 +544,79 @@ namespace Elecelf.Hibiki.Scanner
 
     internal class GrammarStateTransferList : IList<GrammarTransfer>
     {
-        private HashSet<Symol> notDirtySet = new HashSet<Symol>();
-        private List<GrammarTransfer> innerList;
+        private readonly HashSet<Symol> _notDirtySet = new HashSet<Symol>();
+        private readonly List<GrammarTransfer> _innerList;
 
-        public GrammarStateTransferList() => innerList = new List<GrammarTransfer>();
+        public GrammarStateTransferList() => _innerList = new List<GrammarTransfer>();
 
-        public GrammarStateTransferList(IEnumerable<GrammarTransfer> collection) => innerList = new List<GrammarTransfer>(collection);
+        public GrammarStateTransferList(IEnumerable<GrammarTransfer> collection) => _innerList = new List<GrammarTransfer>(collection);
 
-        public GrammarStateTransferList(int capacity) => innerList = new List<GrammarTransfer>(capacity);
+        public GrammarStateTransferList(int capacity) => _innerList = new List<GrammarTransfer>(capacity);
 
         public int IndexOf(GrammarTransfer item)
         {
-            return innerList.IndexOf(item);
+            return _innerList.IndexOf(item);
         }
 
         public void Insert(int index, GrammarTransfer item)
         {
-            notDirtySet.Clear();
-            innerList.Insert(index, item);
+            _notDirtySet.Clear();
+            _innerList.Insert(index, item);
         }
 
         public void RemoveAt(int index)
         {
-            notDirtySet.Clear();
-            innerList.RemoveAt(index);
+            _notDirtySet.Clear();
+            _innerList.RemoveAt(index);
         }
 
         public GrammarTransfer this[int index]
         {
-            get
-            {
-                return innerList[index];
-            }
+            get => _innerList[index];
             set
             {
-                innerList[index] = value;
-                notDirtySet.Clear();
+                _innerList[index] = value;
+                _notDirtySet.Clear();
             }
         }
 
         public void Add(GrammarTransfer state)
         {
-            notDirtySet.Clear();
-            innerList.Add(state);
+            _notDirtySet.Clear();
+            _innerList.Add(state);
         }
 
         public void Clear()
         {
-            notDirtySet.Clear();
-            innerList.Clear();
+            _notDirtySet.Clear();
+            _innerList.Clear();
         }
 
         public bool Contains(GrammarTransfer item)
         {
-            return innerList.Contains(item);
+            return _innerList.Contains(item);
         }
 
         public void CopyTo(GrammarTransfer[] array, int arrayIndex)
         {
-            innerList.CopyTo(array, arrayIndex);
+            _innerList.CopyTo(array, arrayIndex);
         }
 
         public bool Remove(GrammarTransfer state)
         {
-            notDirtySet.Clear();
-            return innerList.Remove(state);
+            _notDirtySet.Clear();
+            return _innerList.Remove(state);
         }
 
         public IEnumerator<GrammarTransfer> GetEnumerator()
         {
-            return innerList.GetEnumerator();
+            return _innerList.GetEnumerator();
         }
 
         public int Count
         {
             get =>
-                innerList.Count;
+                _innerList.Count;
         }
 
         public bool IsReadOnly
@@ -596,12 +631,12 @@ namespace Elecelf.Hibiki.Scanner
 
         public void ClearDirty(Symol symol)
         {
-            notDirtySet.Add(symol);
+            _notDirtySet.Add(symol);
         }
 
         public bool IsDirty(Symol symol)
         {
-            return !notDirtySet.Contains(symol);
+            return !_notDirtySet.Contains(symol);
         }
     }
 
@@ -804,13 +839,44 @@ namespace Elecelf.Hibiki.Scanner
 
     public class GrammarTransfer
     {
-        public TransferCondition TransferCondition { get; set; }
+        public GrammarTransfer(TransferCondition condition)
+        {
+            TransferCondition = condition;
+        }
+
+        public TransferCondition TransferCondition { get; }
         public GrammarState TransfedState { get; set; }
         public GrammarState BacktraceState { get; set; }
 
         public (bool, GrammarState) InputWord(Token token, ScannerContext context)
         {
             return (TransferCondition.Pass(token, context), TransfedState);
+        }
+
+        public static bool operator ==(GrammarTransfer transfer1, GrammarTransfer transfer2)
+        {
+            if (transfer1 is null || transfer2 is null)
+                return false;
+
+            return transfer1.BacktraceState == transfer2.BacktraceState &&
+                   transfer1.TransfedState == transfer2.TransfedState &&
+                   transfer1.TransferCondition == transfer2.TransferCondition;
+        }
+
+        public static bool operator !=(GrammarTransfer transfer1, GrammarTransfer transfer2)
+        {
+            return !(transfer1 == transfer2);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is GrammarTransfer transfer) return this == transfer;
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return TransferCondition.GetHashCode();
         }
     }
 }
