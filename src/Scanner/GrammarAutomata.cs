@@ -469,6 +469,7 @@ namespace Elecelf.Hibiki.Scanner
             }, currentPosition);
         }
 
+#region Trimming epsilon transfers
         /// <summary>
         /// Trim epsilon transfers and duplicated states.
         /// </summary>
@@ -509,13 +510,58 @@ namespace Elecelf.Hibiki.Scanner
         /// <summary>
         /// Trim redundant transfers between two states, left only one.
         /// </summary>
-        /// <param name="transfer"></param>
+        /// <param name="transfer">Transfer which you wanna trim from automata.</param>
         private static void TrimRedundantTransfer(GrammarTransfer transfer)
         {
             RemoveTransfer(transfer);
             transfer.BacktraceState.Transfers.Add(transfer);
             transfer.TransfedState.Backtransfers.Add(transfer);
         }
+
+        /// <summary>
+        /// Make a transfered end point to another state.
+        /// </summary>
+        /// <param name="transfer">Transfer will be modified.</param>
+        /// <param name="newTarget">New target of transfer.</param>
+        private static void ChangeTransferTarget(GrammarTransfer transfer, GrammarState newTarget)
+        {
+            var removeList = new List<GrammarTransfer>();
+
+            // Remove transfer from backtrace state.
+            for (var i = 0; i != transfer.TransfedState.Backtransfers.Count; i++)
+                if (transfer.TransfedState.Backtransfers[i] == transfer)
+                    removeList.Add(transfer.TransfedState.Backtransfers[i]);
+            foreach (var grammarTransfer in removeList)
+            {
+                transfer.TransfedState.Backtransfers.Remove(grammarTransfer);
+            }
+
+            transfer.TransfedState = newTarget;
+            newTarget.Backtransfers.Add(transfer);
+        }
+
+        /// <summary>
+        /// Make a transfered start point to another state.
+        /// </summary>
+        /// <param name="transfer">Transfer will be modified.</param>
+        /// <param name="newSource">New source of transfer.</param>
+        private static void ChangeTransferSource(GrammarTransfer transfer, GrammarState newSource)
+        {
+            var removeList = new List<GrammarTransfer>();
+
+            // Remove transfer from backtrace state.
+            for (var i = 0; i != transfer.BacktraceState.Transfers.Count; i++)
+                if (transfer.BacktraceState.Transfers[i] == transfer)
+                    removeList.Add(transfer.BacktraceState.Transfers[i]);
+            foreach (var grammarTransfer in removeList)
+            {
+                transfer.BacktraceState.Transfers.Remove(grammarTransfer);
+            }
+
+            transfer.BacktraceState = newSource;
+            newSource.Transfers.Add(transfer);
+        }
+        #endregion
 
         private static GrammarState TransferState(
             TransferCondition condition, 
