@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Elecelf.Hibiki.Scanner
+namespace Elecelf.Hibiki.Parser
 {
     public class ParseErrorException : Exception
     {

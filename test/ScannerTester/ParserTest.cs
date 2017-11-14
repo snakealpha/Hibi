@@ -1,5 +1,5 @@
 ﻿using System;
-using Elecelf.Hibiki.Scanner;
+using Elecelf.Hibiki.Parser;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ScannerTester
@@ -7,7 +7,7 @@ namespace ScannerTester
     [TestClass]
     public class ParserTest
     {
-        private readonly ScannerContext UsecaseContext = new ScannerContext();
+        private readonly ParserContext UsecaseContext = new ParserContext();
 
         [TestMethod]
         public void SimpleElement()

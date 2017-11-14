@@ -50,9 +50,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Scanner\Scanner.csproj">
+    <ProjectReference Include="..\src\Scanner\Parser.csproj">
       <Project>{27b3a066-2b67-4238-8395-14a405adecef}</Project>
-      <Name>Scanner</Name>
+      <Name>Parser</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

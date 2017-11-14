@@ -1,10 +1,10 @@
 using System;
 
-namespace Elecelf.Hibiki.Scanner
+namespace Elecelf.Hibiki.Parser
 {
     public abstract class TransferCondition
     {
-        public abstract bool Pass(Token word, ScannerContext context);
+        public abstract bool Pass(Token word, ParserContext context);
     }
 
     public class EscapeTransferCondition : TransferCondition
@@ -16,7 +16,7 @@ namespace Elecelf.Hibiki.Scanner
 
         public string EscapeLiteral { get; }
 
-        public override bool Pass(Token word, ScannerContext context)
+        public override bool Pass(Token word, ParserContext context)
         {
             var hasMatchList = context.EscapeMap.TryGetValue(EscapeLiteral, out var matchList);
 
@@ -66,7 +66,7 @@ namespace Elecelf.Hibiki.Scanner
             get;
         }
 
-        public override bool Pass(Token word, ScannerContext context)
+        public override bool Pass(Token word, ParserContext context)
         {
             return CompareReference == word.Literal;
         }
@@ -106,7 +106,7 @@ namespace Elecelf.Hibiki.Scanner
             get;
         }
 
-        public override bool Pass(Token word, ScannerContext context)
+        public override bool Pass(Token word, ParserContext context)
         {
             return CompareReference == word.Grammer.Symol;
         }
@@ -149,7 +149,7 @@ namespace Elecelf.Hibiki.Scanner
             }
         }
 
-        public override bool Pass(Token token, ScannerContext context)
+        public override bool Pass(Token token, ParserContext context)
         {
             if (token.Grammer.Symol == context.SymolHost.GetSymol("eps"))
                 return true;

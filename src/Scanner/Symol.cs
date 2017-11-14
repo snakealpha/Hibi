@@ -1,7 +1,7 @@
 ﻿using System.CodeDom;
 using System.Collections.Generic;
 
-namespace Elecelf.Hibiki.Scanner
+namespace Elecelf.Hibiki.Parser
 {
     /// <summary>
     /// Provide helper methods for symol manager in scan phase.

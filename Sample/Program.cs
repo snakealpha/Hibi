@@ -1,4 +1,4 @@
-﻿using Elecelf.Hibiki.Scanner;
+﻿using Elecelf.Hibiki.Parser;
 
 namespace Elecelf.Hibiki.Sample
 {
@@ -6,14 +6,16 @@ namespace Elecelf.Hibiki.Sample
     {
         static void Main(string[] args)
         {
-            ScannerContext context = new ScannerContext();
+            ParserContext context = new ParserContext();
 
             string testText = @"start%r%{te}(ab|ba)@@{rr}";
 
             string testText2 = @"(ab|ba|(ar|ra)*)*{aa}{rr}";
 
-            var tokens = GrammarAutomata.Parse(testText, context, "TestGrammar");
-            var tokens2 = GrammarAutomata.Parse(testText2, context, "TestGrammar2");
+            var automata1 = GrammarAutomata.Parse(testText, context, "TestGrammar");
+            var automata2 = GrammarAutomata.Parse(testText2, context, "TestGrammar2");
+
+
 
             return;
         }

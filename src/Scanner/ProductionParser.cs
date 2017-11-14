@@ -1,12 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace Elecelf.Hibiki.Scanner
+namespace Elecelf.Hibiki.Parser
 {
-    public class Scanner
-    {
-    }
-
-    public class ScannerContext
+    public class ParserContext
     {
         private readonly SymolHelper _symolHost = new SymolHelper();
         public SymolHelper SymolHost => _symolHost;
@@ -26,5 +22,7 @@ namespace Elecelf.Hibiki.Scanner
         {
             return ++stateCounter;
         }
+
+        
     }
 }
