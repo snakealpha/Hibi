@@ -23,6 +23,42 @@ namespace Elecelf.Hibiki.Parser
             return ++stateCounter;
         }
 
-        
+        // Productions Manager
+
+        public readonly Dictionary<string, ProductionsGroup> Productions = new Dictionary<string, ProductionsGroup>();
+
+        public void AppendProduction(string productionName, GrammarAutomata production)
+        {
+            if(Productions.TryGetValue(productionName, out var productionGroup))
+                productionGroup.Add(production);
+            else
+                Productions[productionName] = new ProductionsGroup(productionName, production);
+        }
+
+        public GrammarAutomata StartProduction
+        {
+            get;
+            set;
+        }
+    }
+
+    public class ProductionsGroup : List<GrammarAutomata>
+    {
+        public ProductionsGroup(string productionName)
+        {
+            ProductionName = productionName;
+        }
+
+        public ProductionsGroup(string productionName, params GrammarAutomata[] productions)
+        {
+            ProductionName = productionName;
+            AddRange(productions);
+        }
+
+        public string ProductionName
+        {
+            get;
+            private set;
+        }
     }
 }

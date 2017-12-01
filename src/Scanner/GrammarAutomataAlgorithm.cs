@@ -1,19 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
+// ReSharper disable once CheckNamespace
 namespace Elecelf.Hibiki.Parser
 {
     public partial class GrammarAutomata
     {
-
         /// <summary>
         /// Parse a string to a automata.
         /// </summary>
         /// <param name="rawString">String to be parsed.</param>
         /// <param name="context">Parse context.</param>
+        /// <param name="grammarName"></param>
         /// <returns>Parsed automata.</returns>
         public static GrammarAutomata Parse(string rawString, ParserContext context, string grammarName = null)
         {
@@ -33,9 +31,7 @@ namespace Elecelf.Hibiki.Parser
             });
 
             // Phase 2: Make tokens to automata.
-            var (segment, _) = ParseTokens(tokens, 0, automata.StartState, context, grammarName);
-
-            //TrimAutomata(automata.StartState, context, grammarName);
+            ParseTokens(tokens, 0, automata.StartState, context, grammarName);
 
             return automata;
         }
@@ -83,7 +79,7 @@ namespace Elecelf.Hibiki.Parser
                         tokens.Add(new ScannerToken()
                         {
                             GroupLevel = currentGroupLevel,
-                            TransferType = ParseBlockState.OR,
+                            TransferType = ParseBlockState.Or,
                         });
                     }
                     // Flow control: kleen star
@@ -222,7 +218,6 @@ namespace Elecelf.Hibiki.Parser
                 }
                 else
                 {
-                    lookaroundChar = null;
                     break;
                 }
             }
@@ -248,13 +243,18 @@ namespace Elecelf.Hibiki.Parser
         /// <param name="tokens">Tokens to be parsed.</param>
         /// <param name="startPosition">Start position of this sub automata in token list.</param>
         /// <param name="sourceState">Start state of this grammar automata.</param>
+        /// <param name="context">Parse context passed to this parse process.</param>
+        /// <param name="grammarName">Name of parsed</param>
         /// <returns>1- Sub automata parsed from this token collection; 2- Start position of next state of current state.</returns>
         private static (SubGrammarAutomata, int) ParseTokens(IList<ScannerToken> tokens, int startPosition, GrammarState sourceState, ParserContext context, string grammarName)
         {
             var baseGroupLevel = tokens[startPosition].GroupLevel;
             var currentPosition = startPosition;
             var currentState = sourceState;
+
             GrammarState orEndState = null;
+            // Branch id of or-state automata. Used to ensure branch production's name.
+            var branchNum = 0;
 
             // record last block's start and end states, may be used by a kleen star.
             GrammarState lastBlockStartState = null;
@@ -269,28 +269,43 @@ namespace Elecelf.Hibiki.Parser
 
             var currentSubAutomataType = SubGrammarAutomata.SubGrammarAutomataType.Linear;
 
+            // Record group number to make grouped automata's production name.
+            var groupNum = 0;
+
             while (currentPosition < tokens.Count)
             {
                 var currentToken = tokens[currentPosition];
 
                 if (currentToken.GroupLevel > baseGroupLevel)
                 {
+                    string newAutomataName = $"{grammarName ?? "base"}_group-{++groupNum}";
+                    var newAutomata = new GrammarAutomata(context.SymolHost.GetSymol(newAutomataName));
+
                     // Token has higher group level: this token is in a inner layer of group.
                     // Get a sub automata of later tokens.
-                    (SubGrammarAutomata subAutomata, int newPosition) =
-                        ParseTokens(tokens, currentPosition, currentState, context, grammarName);
+                    (SubGrammarAutomata _, int newPosition) =
+                        ParseTokens(tokens, currentPosition, newAutomata.StartState, context, newAutomataName);
+
+                    // Add group into productions as it's a new production.
+                    context.AppendProduction(newAutomataName, newAutomata);
 
                     currentPosition = newPosition;
-                    currentState = subAutomata.EndState;
-                    currentSubAutomata.EndState = subAutomata.EndState;
 
-                    lastBlockStartState = subAutomata.StartState;
-                    lastBlockEndState = subAutomata.EndState;
+                    // Instead high level part with a new grammar block
+                    lastBlockStartState = currentState;
+
+                    currentState = TransferState(
+                        new SymolTransferCondition(context.SymolHost.GetSymol(newAutomataName)),
+                        currentState,
+                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                    currentSubAutomata.EndState = currentState;
+
+                    lastBlockEndState = currentState;
 
                     // Immediately apply new currentPosition
                     continue;
                 }
-                else if (currentToken.GroupLevel < baseGroupLevel)
+                if (currentToken.GroupLevel < baseGroupLevel)
                 {
                     // Token has lower group level: current group is ended.
                     // Return current parsed automata.
@@ -311,80 +326,77 @@ namespace Elecelf.Hibiki.Parser
                         GroupLevel = baseGroupLevel,
                     }, currentPosition);
                 }
-                else
+// process current token
+
+                // Linear Automata
+                if (currentToken.TransferType == ParseBlockState.Escape)
                 {
-                    // process current token
+                    lastBlockStartState = currentState;
 
-                    // Linear Automata
-                    if (currentToken.TransferType == ParseBlockState.Escape)
+                    currentState = TransferState(
+                        new EscapeTransferCondition(currentToken.Literal),
+                        currentState,
+                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                    currentSubAutomata.EndState = currentState;
+
+                    lastBlockEndState = currentState;
+                }
+                else if (currentToken.TransferType == ParseBlockState.Grammar)
+                {
+                    lastBlockStartState = currentState;
+
+                    currentState = TransferState(
+                        new SymolTransferCondition(context.SymolHost.GetSymol(currentToken.Literal)),
+                        currentState,
+                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                    currentSubAutomata.EndState = currentState;
+
+                    lastBlockEndState = currentState;
+                }
+                else if (currentToken.TransferType == ParseBlockState.String)
+                {
+                    lastBlockStartState = currentState;
+
+                    currentState = TransferState(
+                        new StringTransferCondition(currentToken.Literal),
+                        currentState,
+                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                    currentSubAutomata.EndState = currentState;
+
+                    lastBlockEndState = currentState;
+                }
+                // Branch or kleen star Automata
+                else if (currentToken.TransferType == ParseBlockState.KleenStar)
+                {
+                    System.Diagnostics.Debug.Assert(lastBlockStartState != null, "Kleen Star Cannot be first token in a grammar.");
+
+                    TransferState(
+                        EpsilonTransferCondition.Instance,
+                        lastBlockStartState,
+                        currentSubAutomata.EndState);
+                    TransferState(
+                        EpsilonTransferCondition.Instance,
+                        lastBlockEndState,
+                        lastBlockStartState);
+                }
+                else if (currentToken.TransferType == ParseBlockState.Or)
+                {
+                    currentSubAutomataType = SubGrammarAutomata.SubGrammarAutomataType.OR;
+                    if (orEndState == null)
+                        orEndState = new GrammarState(context.SymolHost.GetSymol("OR-End_State_" + context.GetNextStateIndex()));
+
+                    TransferState(
+                        EpsilonTransferCondition.Instance,
+                        currentState,
+                        orEndState);
+
+                    currentState = sourceState;
+                    currentSubAutomata = new SubGrammarAutomata()
                     {
-                        lastBlockStartState = currentState;
-
-                        currentState = TransferState(
-                            new EscapeTransferCondition(currentToken.Literal),
-                            currentState,
-                            newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
-                        currentSubAutomata.EndState = currentState;
-
-                        lastBlockEndState = currentState;
-                    }
-                    else if (currentToken.TransferType == ParseBlockState.Grammar)
-                    {
-                        lastBlockStartState = currentState;
-
-                        currentState = TransferState(
-                            new SymolTransferCondition(context.SymolHost.GetSymol(currentToken.Literal)),
-                            currentState,
-                            newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
-                        currentSubAutomata.EndState = currentState;
-
-                        lastBlockEndState = currentState;
-                    }
-                    else if (currentToken.TransferType == ParseBlockState.String)
-                    {
-                        lastBlockStartState = currentState;
-
-                        currentState = TransferState(
-                            new StringTransferCondition(currentToken.Literal),
-                            currentState,
-                            newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
-                        currentSubAutomata.EndState = currentState;
-
-                        lastBlockEndState = currentState;
-                    }
-                    // Branch or kleen star Automata
-                    else if (currentToken.TransferType == ParseBlockState.KleenStar)
-                    {
-                        System.Diagnostics.Debug.Assert(lastBlockStartState != null, "Kleen Star Cannot be first token in a grammar.");
-
-                        TransferState(
-                            EpsilonTransferCondition.Instance,
-                            lastBlockStartState,
-                            currentSubAutomata.EndState);
-                        TransferState(
-                            EpsilonTransferCondition.Instance,
-                            lastBlockEndState,
-                            lastBlockStartState);
-                    }
-                    else if (currentToken.TransferType == ParseBlockState.OR)
-                    {
-                        currentSubAutomataType = SubGrammarAutomata.SubGrammarAutomataType.OR;
-                        if (orEndState == null)
-                            orEndState = new GrammarState(context.SymolHost.GetSymol("OR-End_State_" + context.GetNextStateIndex()));
-
-                        TransferState(
-                            EpsilonTransferCondition.Instance,
-                            currentState,
-                            orEndState);
-
-                        currentState = sourceState;
-                        currentSubAutomata = new SubGrammarAutomata()
-                        {
-                            StartState = sourceState,
-                            EndState = currentState,
-                            GroupLevel = baseGroupLevel,
-                        };
-                    }
+                        StartState = sourceState,
+                        EndState = currentState,
+                        GroupLevel = baseGroupLevel,
+                    };
                 }
 
                 // Add current position

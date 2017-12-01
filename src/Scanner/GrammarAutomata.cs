@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,8 +14,7 @@ namespace Elecelf.Hibiki.Parser
             Symol = symol;
         }
 
-        private readonly List<GrammarAutomata> _grammars = new List<GrammarAutomata>();
-        public List<GrammarAutomata> Grammars => _grammars;
+        public List<GrammarAutomata> Grammars { get; } = new List<GrammarAutomata>();
     }
 
     public class Token
@@ -33,7 +33,7 @@ namespace Elecelf.Hibiki.Parser
             Grammar,
             String,
             // used for OR operator and Kleen Star
-            OR,
+            Or,
             KleenStar,
             // used to set a default group level of a group of tokens, 
             // void  parser gets a wrong initial group level if tokens start with a token with high group level.
@@ -48,7 +48,7 @@ namespace Elecelf.Hibiki.Parser
 
             public override string ToString()
             {
-                return $"{TransferType.ToString()} - {Literal}";
+                return $"{TransferType} - {Literal}";
             }
         }
 
@@ -68,7 +68,6 @@ namespace Elecelf.Hibiki.Parser
         {
             StartState = new GrammarState();
         }
-
     }
 
     internal class GrammarStateTransferList : IList<GrammarTransfer>
@@ -142,16 +141,9 @@ namespace Elecelf.Hibiki.Parser
             return _innerList.GetEnumerator();
         }
 
-        public int Count
-        {
-            get =>
-                _innerList.Count;
-        }
+        public int Count => _innerList.Count;
 
-        public bool IsReadOnly
-        {
-            get => false;
-        }
+        public bool IsReadOnly => false;
 
         IEnumerator IEnumerable.GetEnumerator()
         {
@@ -188,9 +180,9 @@ namespace Elecelf.Hibiki.Parser
         /// <summary>
         /// Is this state a terminal state?
         /// </summary>
-        public bool SelfIsTerminal { set; get; } = false;
+        public bool SelfIsTerminal { set; get; }
 
-        public Symol? Symol { private set; get; } = null;
+        public Symol? Symol { get; }
 
         public GrammarState(Symol symol)
         {
@@ -264,7 +256,7 @@ namespace Elecelf.Hibiki.Parser
 
         #region Join epsilon transfers' states
         private GrammarTransfer[] usableTransfers;
-        private bool isTerminal = false;
+        private bool isTerminal;
 
         private void RebuildUsableTransfers()
         {
@@ -332,6 +324,26 @@ namespace Elecelf.Hibiki.Parser
                 RebuildUsableTransfers();
                 return isTerminal;
             }
+        }
+        #endregion
+
+        #region Get first-set
+        /// <summary>
+        /// Get first-set of this automata.
+        /// </summary>
+        /// <returns>First-set of this automata.</returns>
+        public IList<GrammarTransfer> GetFirstSet()
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Get follow-set of all words in this automata.
+        /// </summary>
+        /// <returns>Follow-sets of all words in this automata.</returns>
+        public IDictionary<string, IList<GrammarTransfer>> GetFollowSet()
+        {
+            throw new NotImplementedException();
         }
         #endregion
     }
@@ -409,6 +421,3 @@ namespace Elecelf.Hibiki.Parser
         }
     }
 }
-
-/// Memo 2017-9-19
-/// TODO: Trim on epsilon transfers and duplicated states.
