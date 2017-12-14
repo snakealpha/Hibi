@@ -2,21 +2,21 @@
 using System.Linq;
 
 // ReSharper disable once CheckNamespace
-namespace Elecelf.Hibiki.Parser
+namespace Elecelf.Hibiki.Parser.GrammarGraph
 {
     public partial class GrammarAutomata
     {
         /// <summary>
-        /// Parse a string to a automata.
+        /// ParseProduction a string to a automata.
         /// </summary>
         /// <param name="rawString">String to be parsed.</param>
-        /// <param name="context">Parse context.</param>
+        /// <param name="context">ParseProduction context.</param>
         /// <param name="grammarName"></param>
         /// <returns>Parsed automata.</returns>
-        public static GrammarAutomata Parse(string rawString, ParserContext context, string grammarName = null)
+        public static GrammarAutomata ParseProduction(string rawString, ParserContext context, string grammarName = null)
         {
             var automata = grammarName != null
-                ? new GrammarAutomata(context.SymolHost.GetSymol(grammarName + "_Start"))
+                ? new GrammarAutomata(context.SymbolHost.GetSymol(grammarName + "_Start"))
                 : new GrammarAutomata();
 
             // Phase 1: Make string to tokens and make the collection of tokens.
@@ -243,7 +243,7 @@ namespace Elecelf.Hibiki.Parser
         /// <param name="tokens">Tokens to be parsed.</param>
         /// <param name="startPosition">Start position of this sub automata in token list.</param>
         /// <param name="sourceState">Start state of this grammar automata.</param>
-        /// <param name="context">Parse context passed to this parse process.</param>
+        /// <param name="context">ParseProduction context passed to this parse process.</param>
         /// <param name="grammarName">Name of parsed</param>
         /// <returns>1- Sub automata parsed from this token collection; 2- Start position of next state of current state.</returns>
         private static (SubGrammarAutomata, int) ParseTokens(IList<ScannerToken> tokens, int startPosition, GrammarState sourceState, ParserContext context, string grammarName)
@@ -253,8 +253,6 @@ namespace Elecelf.Hibiki.Parser
             var currentState = sourceState;
 
             GrammarState orEndState = null;
-            // Branch id of or-state automata. Used to ensure branch production's name.
-            var branchNum = 0;
 
             // record last block's start and end states, may be used by a kleen star.
             GrammarState lastBlockStartState = null;
@@ -279,7 +277,7 @@ namespace Elecelf.Hibiki.Parser
                 if (currentToken.GroupLevel > baseGroupLevel)
                 {
                     string newAutomataName = $"{grammarName ?? "base"}_group-{++groupNum}";
-                    var newAutomata = new GrammarAutomata(context.SymolHost.GetSymol(newAutomataName));
+                    var newAutomata = new GrammarAutomata(context.SymbolHost.GetSymol(newAutomataName));
 
                     // Token has higher group level: this token is in a inner layer of group.
                     // Get a sub automata of later tokens.
@@ -295,9 +293,9 @@ namespace Elecelf.Hibiki.Parser
                     lastBlockStartState = currentState;
 
                     currentState = TransferState(
-                        new SymolTransferCondition(context.SymolHost.GetSymol(newAutomataName)),
+                        new SymolTransferCondition(context.SymbolHost.GetSymol(newAutomataName)),
                         currentState,
-                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                        newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
 
                     lastBlockEndState = currentState;
@@ -336,7 +334,7 @@ namespace Elecelf.Hibiki.Parser
                     currentState = TransferState(
                         new EscapeTransferCondition(currentToken.Literal),
                         currentState,
-                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                        newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
 
                     lastBlockEndState = currentState;
@@ -346,9 +344,9 @@ namespace Elecelf.Hibiki.Parser
                     lastBlockStartState = currentState;
 
                     currentState = TransferState(
-                        new SymolTransferCondition(context.SymolHost.GetSymol(currentToken.Literal)),
+                        new SymolTransferCondition(context.SymbolHost.GetSymol(currentToken.Literal)),
                         currentState,
-                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                        newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
 
                     lastBlockEndState = currentState;
@@ -360,7 +358,7 @@ namespace Elecelf.Hibiki.Parser
                     currentState = TransferState(
                         new StringTransferCondition(currentToken.Literal),
                         currentState,
-                        newStateSymol: context.SymolHost.GetSymol("State_" + context.GetNextStateIndex()));
+                        newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
 
                     lastBlockEndState = currentState;
@@ -383,7 +381,7 @@ namespace Elecelf.Hibiki.Parser
                 {
                     currentSubAutomataType = SubGrammarAutomata.SubGrammarAutomataType.OR;
                     if (orEndState == null)
-                        orEndState = new GrammarState(context.SymolHost.GetSymol("OR-End_State_" + context.GetNextStateIndex()));
+                        orEndState = new GrammarState(context.SymbolHost.GetSymol("OR-End_State_" + context.GetNextStateIndex()));
 
                     TransferState(
                         EpsilonTransferCondition.Instance,
@@ -425,10 +423,10 @@ namespace Elecelf.Hibiki.Parser
             TransferCondition condition,
             GrammarState currentState,
             GrammarState targetState = null,
-            Symol? newStateSymol = null)
+            Symbol? newStateSymbol = null)
         {
             var transferCondition = condition;
-            var newState = targetState ?? (newStateSymol == null ? new GrammarState() : new GrammarState(newStateSymol.Value));
+            var newState = targetState ?? (newStateSymbol == null ? new GrammarState() : new GrammarState(newStateSymbol.Value));
             var newTransfer = new GrammarTransfer(transferCondition)
             {
                 TransfedState = newState,

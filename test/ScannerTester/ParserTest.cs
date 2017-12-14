@@ -1,5 +1,6 @@
 ﻿using System;
 using Elecelf.Hibiki.Parser;
+using Elecelf.Hibiki.Parser.GrammarGraph;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ScannerTester
@@ -14,7 +15,7 @@ namespace ScannerTester
         {
             // Simple string element
             var rawString = @"string";
-            var grammar = GrammarAutomata.Parse(rawString, UsecaseContext);
+            var grammar = GrammarAutomata.ParseProduction(rawString, UsecaseContext);
             Assert.IsTrue(
                 grammar.StartState.IsTerminal != true &&                                                                            // Start state should not be a terminal state.
                 grammar.StartState.Transfers.Count == 1 &&                                                                          // Only one transfer in start state.

@@ -2,29 +2,32 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Elecelf.Hibiki.Parser.SyntaxParser;
 
-namespace Elecelf.Hibiki.Parser
+namespace Elecelf.Hibiki.Parser.GrammarGraph
 {
     public class Grammar
     {
-        public readonly Symol Symol;
+        public readonly Symbol Symbol;
 
-        public Grammar(Symol symol)
+        public Grammar(Symbol symbol)
         {
-            Symol = symol;
+            Symbol = symbol;
         }
 
         public List<GrammarAutomata> Grammars { get; } = new List<GrammarAutomata>();
     }
 
-    public class Token
+    public class GraphToken
     {
         public string Literal { set; get; }
         public Grammar Grammer { set; get; }
     }
 
-    public partial class GrammarAutomata
+    public partial class GrammarAutomata : IParseable
     {
+
+
         private enum ParseBlockState
         {
             Escape,
@@ -59,20 +62,140 @@ namespace Elecelf.Hibiki.Parser
         /// </summary>
         public readonly GrammarState StartState;
 
-        public GrammarAutomata(Symol? automataSymol)
+        public GrammarAutomata(Symbol? automataSymbol)
         {
-            StartState = automataSymol != null ? new GrammarState(automataSymol.Value) : new GrammarState();
+            StartState = automataSymbol != null ? new GrammarState(automataSymbol.Value) : new GrammarState();
         }
 
         public GrammarAutomata()
         {
             StartState = new GrammarState();
         }
+
+        #region Get first-set
+        /// <summary>
+        /// Get first-set of this automata.
+        /// </summary>
+        /// <returns>First-set of this automata.</returns>
+        public IList<TransferCondition> GetFirstSet(ParserContext context)
+        {
+            var firstSetChecked = new Symbol("FirstSetChecked", 1000u, this);
+            var set = new List<TransferCondition>();
+            var checkedStates = new List<GrammarState>();
+
+            var checkStates = new Queue<GrammarState>();
+            checkStates.Enqueue(StartState);
+            while (checkStates.Count > 0)
+            {
+                var state = checkStates.Dequeue();
+
+                if (state.GetAccessibility(firstSetChecked))
+                    continue;
+
+                state.SetAccessibility(firstSetChecked);
+                checkedStates.Add(state);
+
+                foreach (var transfer in state.Transfers)
+                {
+                    if(transfer.TransferCondition is EpsilonTransferCondition)
+                        checkStates.Enqueue(transfer.TransfedState);
+                    else if (transfer.TransferCondition is SymolTransferCondition condition)
+                    {
+                        foreach (var production in context.Productions[condition.CompareReference.ToString()])
+                        {
+                            set.AddRange(production.GetFirstSet(context));
+                        }
+                    }
+                    else
+                    {
+                        set.Add(transfer.TransferCondition);
+                    }
+                }
+            }
+
+            foreach (var checkedState in checkedStates)
+            {
+                checkedState.RemoveAccessibility(firstSetChecked);
+            }
+
+            return set;
+        }
+
+        public bool CanReceiveEpsilon(ParserContext context)
+        {
+            var epsChecked = new Symbol("EpsChecked", 1002u, this);
+            var canReceiveEps = false;
+            var checkedList = new List<GrammarState>();
+
+            var checkStates = new Queue<GrammarState>();
+            checkStates.Enqueue(StartState);
+            while (checkStates.Count > 0)
+            {
+                var state = checkStates.Dequeue();
+
+                if (state.GetAccessibility(epsChecked))
+                    continue;
+
+                state.SetAccessibility(epsChecked);
+                checkedList.Add(state);
+
+                foreach (var transfer in state.Transfers)
+                {
+                    if (transfer.TransferCondition is EpsilonTransferCondition)
+                    {
+                        var targetState = transfer.TransfedState;
+                        if (targetState.IsTerminal)
+                        {
+                            canReceiveEps = true;
+                        }
+                        else
+                        {
+                            checkStates.Enqueue(targetState);
+                        }
+                    }
+                    else if (transfer.TransferCondition is SymolTransferCondition condition)
+                    {
+                        var productions = context.Productions[condition.CompareReference.SymbolName];
+                        foreach (var production in productions)
+                        {
+                            canReceiveEps |= production.CanReceiveEpsilon(context);
+                            if (canReceiveEps) break;
+                        }
+                    }
+
+                    if(canReceiveEps)
+                        goto FinishChcek;
+                }
+            }
+
+        FinishChcek:
+            foreach(var checkedState in checkedList)
+                checkedState.RemoveAccessibility(epsChecked);
+
+            return canReceiveEps;
+        }
+
+        /// <summary>
+        /// Get follow-set of all words in this automata.
+        /// </summary>
+        /// <returns>Follow-sets of all words in this automata.</returns>
+        public IDictionary<Symbol, IList<TransferCondition>> GetFollowSet(ParserContext context)
+        {
+            var result = new Dictionary<Symbol, List<TransferCondition>>();
+
+            throw new NotImplementedException();
+        }
+        #endregion
+
+        public (SyntaxNode astRootNode, bool successed) Parse(TokenSource sourceType, string source, IEnumerable<char> script)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     internal class GrammarStateTransferList : IList<GrammarTransfer>
     {
-        private readonly HashSet<Symol> _notDirtySet = new HashSet<Symol>();
+        private readonly HashSet<Symbol> _notDirtySet = new HashSet<Symbol>();
         private readonly List<GrammarTransfer> _innerList;
 
         public GrammarStateTransferList() => _innerList = new List<GrammarTransfer>();
@@ -150,18 +273,18 @@ namespace Elecelf.Hibiki.Parser
             return GetEnumerator();
         }
 
-        public void ClearDirty(Symol symol)
+        public void ClearDirty(Symbol symbol)
         {
-            _notDirtySet.Add(symol);
+            _notDirtySet.Add(symbol);
         }
 
-        public bool IsDirty(Symol symol)
+        public bool IsDirty(Symbol symbol)
         {
-            return !_notDirtySet.Contains(symol);
+            return !_notDirtySet.Contains(symbol);
         }
     }
 
-    public class GrammarState
+    public class GrammarState : IState
     {
         private readonly GrammarStateTransferList _transfers = new GrammarStateTransferList();
 
@@ -169,6 +292,8 @@ namespace Elecelf.Hibiki.Parser
         /// Transfers from this state.
         /// </summary>
         public IList<GrammarTransfer> Transfers => _transfers;
+
+        IEnumerable<ITransfer> IState.Transfers => _transfers;
 
         private readonly  GrammarStateTransferList _backtraceTransfers = new GrammarStateTransferList();
 
@@ -182,11 +307,11 @@ namespace Elecelf.Hibiki.Parser
         /// </summary>
         public bool SelfIsTerminal { set; get; }
 
-        public Symol? Symol { get; }
+        public Symbol? Symbol { get; }
 
-        public GrammarState(Symol symol)
+        public GrammarState(Symbol symbol)
         {
-            Symol = symol;
+            Symbol = symbol;
         }
 
         public GrammarState()
@@ -197,7 +322,7 @@ namespace Elecelf.Hibiki.Parser
         #region Basic overwrites
         public override string ToString()
         {
-            return Symol == null ? "" : Symol.ToString();
+            return Symbol == null ? "" : Symbol.ToString();
         }
         #endregion
 
@@ -207,7 +332,7 @@ namespace Elecelf.Hibiki.Parser
         /// <param name="token">Word to input to current state.</param>
         /// <param name="context">Context of grammar states.</param>
         /// <returns>Tuple: is transfer available and which state tranfering to.</returns>
-        public (bool, GrammarState) InputWord(Token token, ParserContext context)
+        public (bool, GrammarState) InputWord(GraphToken token, ParserContext context)
         {
             foreach (var grammarTransfer in _transfers)
             {
@@ -220,50 +345,50 @@ namespace Elecelf.Hibiki.Parser
         }
 
         #region Accessibility Check
-        private readonly Dictionary<Symol, bool> _accessibility = new Dictionary<Symol, bool>();
+        private readonly Dictionary<Symbol, bool> _accessibility = new Dictionary<Symbol, bool>();
 
         /// <summary>
         /// Get accessibility state of a specied source.
         /// </summary>
-        /// <param name="idSymol">A symol used to regnize source.</param>
+        /// <param name="idSymbol">A symbol used to regnize source.</param>
         /// <returns>Accessibility</returns>
-        public bool GetAccessibility(Symol idSymol)
+        public bool GetAccessibility(Symbol idSymbol)
         {
-            if (!_accessibility.ContainsKey(idSymol))
-                _accessibility[idSymol] = false;
+            if (!_accessibility.ContainsKey(idSymbol))
+                _accessibility[idSymbol] = false;
 
-            return _accessibility[idSymol];
+            return _accessibility[idSymbol];
         }
 
         /// <summary>
         /// Set accessibility state of a specied source.
         /// </summary>
-        /// <param name="idSymol">A symol used to regnize source.</param>
-        public void SetAccessibility(Symol idSymol)
+        /// <param name="idSymbol">A symbol used to regnize source.</param>
+        public void SetAccessibility(Symbol idSymbol)
         {
-            _accessibility[idSymol] = true;
+            _accessibility[idSymbol] = true;
         }
 
         /// <summary>
         /// Clear accessibility state of a specied source.
         /// </summary>
-        /// <param name="idSymol">>A symol used to regnize source.</param>
-        public void RemoveAccessibility(Symol idSymol)
+        /// <param name="idSymbol">>A symbol used to regnize source.</param>
+        public void RemoveAccessibility(Symbol idSymbol)
         {
-            _accessibility.Remove(idSymol);
+            _accessibility.Remove(idSymbol);
         }
         #endregion
 
         #region Join epsilon transfers' states
-        private GrammarTransfer[] usableTransfers;
-        private bool isTerminal;
+        private GrammarTransfer[] _usableTransfers;
+        private bool _isTerminal;
 
         private void RebuildUsableTransfers()
         {
             lock (_transfers)
             {
-                Symol accessed = new Symol("rut_accessed", 42u, this);
-                if (usableTransfers == null || _transfers.IsDirty(accessed))
+                Symbol accessed = new Symbol("rut_accessed", 1001u, this);
+                if (_usableTransfers == null || _transfers.IsDirty(accessed))
                 {
                     _transfers.ClearDirty(accessed);
 
@@ -272,7 +397,7 @@ namespace Elecelf.Hibiki.Parser
                     Queue<GrammarState> states = new Queue<GrammarState>();
                     states.Enqueue(this);
 
-                    isTerminal = SelfIsTerminal;
+                    _isTerminal = SelfIsTerminal;
 
                     List<GrammarTransfer> usableTransfers = new List<GrammarTransfer>();
 
@@ -285,7 +410,7 @@ namespace Elecelf.Hibiki.Parser
 
                         state.SetAccessibility(accessed);
 
-                        isTerminal = isTerminal | state.SelfIsTerminal;
+                        _isTerminal = _isTerminal | state.SelfIsTerminal;
 
                         foreach (var transfer in state.Transfers)
                         {
@@ -300,7 +425,7 @@ namespace Elecelf.Hibiki.Parser
                         }
                     }
 
-                    this.usableTransfers = usableTransfers.ToArray();
+                    this._usableTransfers = usableTransfers.ToArray();
 
                     foreach(var item in accessedStates)
                         item.RemoveAccessibility(accessed);
@@ -313,7 +438,7 @@ namespace Elecelf.Hibiki.Parser
             get
             {
                 RebuildUsableTransfers();
-                return usableTransfers;
+                return _usableTransfers;
             }
         }
 
@@ -322,28 +447,8 @@ namespace Elecelf.Hibiki.Parser
             get
             {
                 RebuildUsableTransfers();
-                return isTerminal;
+                return _isTerminal;
             }
-        }
-        #endregion
-
-        #region Get first-set
-        /// <summary>
-        /// Get first-set of this automata.
-        /// </summary>
-        /// <returns>First-set of this automata.</returns>
-        public IList<GrammarTransfer> GetFirstSet()
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Get follow-set of all words in this automata.
-        /// </summary>
-        /// <returns>Follow-sets of all words in this automata.</returns>
-        public IDictionary<string, IList<GrammarTransfer>> GetFollowSet()
-        {
-            throw new NotImplementedException();
         }
         #endregion
     }
@@ -378,7 +483,7 @@ namespace Elecelf.Hibiki.Parser
         public int GroupLevel;
     }
 
-    public class GrammarTransfer
+    public class GrammarTransfer : ITransfer
     {
         public GrammarTransfer(TransferCondition condition)
         {
@@ -389,7 +494,7 @@ namespace Elecelf.Hibiki.Parser
         public GrammarState TransfedState { get; set; }
         public GrammarState BacktraceState { get; set; }
 
-        public (bool, GrammarState) InputWord(Token token, ParserContext context)
+        public (bool, GrammarState) InputWord(GraphToken token, ParserContext context)
         {
             return (TransferCondition.Pass(token, context), TransfedState);
         }
@@ -419,5 +524,8 @@ namespace Elecelf.Hibiki.Parser
         {
             return TransferCondition.GetHashCode();
         }
+
+        ISyntaxElement ITransfer.SyntaxElement => TransferCondition;
+        IState ITransfer.TransfedState => TransfedState;
     }
 }

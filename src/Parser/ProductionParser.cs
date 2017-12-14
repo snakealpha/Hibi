@@ -1,14 +1,15 @@
 ﻿using System.Collections.Generic;
+using Elecelf.Hibiki.Parser.GrammarGraph;
 
 namespace Elecelf.Hibiki.Parser
 {
     public class ParserContext
     {
-        private readonly SymolHelper _symolHost = new SymolHelper();
-        public SymolHelper SymolHost => _symolHost;
+        private readonly SymbolHelper _symbolHost = new SymbolHelper();
+        public SymbolHelper SymbolHost => _symbolHost;
 
-        private uint stateCounter = 0;
-        public uint StateCounter => stateCounter;
+        private uint _stateCounter = 0;
+        public uint StateCounter => _stateCounter;
 
         public readonly Dictionary<string, string[]> EscapeMap = new Dictionary<string, string[]>()
         {
@@ -20,7 +21,7 @@ namespace Elecelf.Hibiki.Parser
 
         public uint GetNextStateIndex()
         {
-            return ++stateCounter;
+            return ++_stateCounter;
         }
 
         // Productions Manager
@@ -58,7 +59,6 @@ namespace Elecelf.Hibiki.Parser
         public string ProductionName
         {
             get;
-            private set;
         }
     }
 }

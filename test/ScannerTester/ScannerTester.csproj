@@ -56,7 +56,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Scanner\Parser.csproj">
+    <ProjectReference Include="..\..\src\Parser\Parser.csproj">
       <Project>{27b3a066-2b67-4238-8395-14a405adecef}</Project>
       <Name>Parser</Name>
     </ProjectReference>

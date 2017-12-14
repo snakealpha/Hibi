@@ -7,8 +7,8 @@
     <ProjectGuid>{27B3A066-2B67-4238-8395-14A405ADECEF}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Elecelf.Hibiki.Scanner</RootNamespace>
-    <AssemblyName>Scanner</AssemblyName>
+    <RootNamespace>Elecelf.Hibiki.Parser</RootNamespace>
+    <AssemblyName>Parser</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -45,12 +45,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Exceptions.cs" />
-    <Compile Include="GrammarAutomata.cs" />
-    <Compile Include="GrammarAutomataAlgorithm.cs" />
     <Compile Include="ProductionParser.cs" />
-    <Compile Include="Symol.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TransferConditions.cs" />
+    <Compile Include="Symbol.cs" />
+    <Compile Include="SyntaxParser\Interfaces\IPassable.cs" />
+    <Compile Include="SyntaxParser\Interfaces\ISyntaxElement.cs" />
+    <Compile Include="SyntaxParser\Interfaces\IState.cs" />
+    <Compile Include="SyntaxParser\Interfaces\ITransfer.cs" />
+    <Compile Include="SyntaxParser\ParserSessionContext.cs" />
+    <Compile Include="SyntaxParser\Scope.cs" />
+    <Compile Include="SyntaxParser\SyntaxNode.cs" />
+    <Compile Include="SyntaxParser\Token.cs" />
+    <Compile Include="GrammarGraph\GrammarAutomata.cs" />
+    <Compile Include="GrammarGraph\GrammarAutomataAlgorithm.cs" />
+    <Compile Include="GrammarGraph\TransferConditions.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

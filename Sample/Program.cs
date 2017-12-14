@@ -1,4 +1,5 @@
 ﻿using Elecelf.Hibiki.Parser;
+using Elecelf.Hibiki.Parser.GrammarGraph;
 
 namespace Elecelf.Hibiki.Sample
 {
@@ -12,8 +13,8 @@ namespace Elecelf.Hibiki.Sample
 
             string testText2 = @"(ab|ba|(ar|ra)*)*{aa}{rr}";
 
-            var automata1 = GrammarAutomata.Parse(testText, context, "TestGrammar");
-            var automata2 = GrammarAutomata.Parse(testText2, context, "TestGrammar2");
+            var automata1 = GrammarAutomata.ParseProduction(testText, context, "TestGrammar");
+            var automata2 = GrammarAutomata.ParseProduction(testText2, context, "TestGrammar2");
 
 
 
