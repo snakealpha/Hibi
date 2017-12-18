@@ -8,6 +8,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
 {
     public enum TokenSource
     {
+        Othoer,
         File,
         Thunk,
     }

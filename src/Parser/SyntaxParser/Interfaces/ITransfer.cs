@@ -5,4 +5,14 @@
         ISyntaxElement SyntaxElement { get; }
         IState TransfedState { get; }
     }
+
+    interface IParseAsSymbol
+    {
+        Symbol SymbolIdentity { get; }
+    }
+
+    interface IParserAsEpsilon
+    {
+
+    }
 }

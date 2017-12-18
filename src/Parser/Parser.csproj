@@ -48,7 +48,8 @@
     <Compile Include="ProductionParser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Symbol.cs" />
-    <Compile Include="SyntaxParser\Interfaces\IPassable.cs" />
+    <Compile Include="SyntaxParser\ErrorInfo.cs" />
+    <Compile Include="SyntaxParser\Interfaces\IParseable.cs" />
     <Compile Include="SyntaxParser\Interfaces\ISyntaxElement.cs" />
     <Compile Include="SyntaxParser\Interfaces\IState.cs" />
     <Compile Include="SyntaxParser\Interfaces\ITransfer.cs" />

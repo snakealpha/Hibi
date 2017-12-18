@@ -4,6 +4,6 @@
     {
         string ToString();
 
-        (bool finished, bool success) PassChar(char input, ParserSessionContext sessionContext, ParserContext context);
+        (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context);
     }
 }

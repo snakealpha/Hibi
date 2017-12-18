@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Elecelf.Hibiki.Parser.SyntaxParser;
 
 namespace Elecelf.Hibiki.Parser.GrammarGraph
@@ -73,6 +72,12 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         }
 
         #region Get first-set
+        /**
+         * Predict set methods: GetFirstSet, GetFollowSet and CanReceiveEpsilon is not useful for a grammar graph.
+         */
+
+        /*
+
         /// <summary>
         /// Get first-set of this automata.
         /// </summary>
@@ -99,9 +104,9 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                 {
                     if(transfer.TransferCondition is EpsilonTransferCondition)
                         checkStates.Enqueue(transfer.TransfedState);
-                    else if (transfer.TransferCondition is SymolTransferCondition condition)
+                    else if (transfer.TransferCondition is SymbolTransferCondition condition)
                     {
-                        foreach (var production in context.Productions[condition.CompareReference.ToString()])
+                        foreach (var production in context.Productions[condition.CompareReference])
                         {
                             set.AddRange(production.GetFirstSet(context));
                         }
@@ -153,9 +158,9 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                             checkStates.Enqueue(targetState);
                         }
                     }
-                    else if (transfer.TransferCondition is SymolTransferCondition condition)
+                    else if (transfer.TransferCondition is SymbolTransferCondition condition)
                     {
-                        var productions = context.Productions[condition.CompareReference.SymbolName];
+                        var productions = context.Productions[condition.CompareReference];
                         foreach (var production in productions)
                         {
                             canReceiveEps |= production.CanReceiveEpsilon(context);
@@ -185,12 +190,10 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
 
             throw new NotImplementedException();
         }
-        #endregion
 
-        public (SyntaxNode astRootNode, bool successed) Parse(TokenSource sourceType, string source, IEnumerable<char> script)
-        {
-            throw new NotImplementedException();
-        }
+        */
+
+        #endregion
     }
 
     internal class GrammarStateTransferList : IList<GrammarTransfer>
@@ -325,25 +328,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             return Symbol == null ? "" : Symbol.ToString();
         }
         #endregion
-
-        /// <summary>
-        /// Input a word to drive the state transfer to next state.
-        /// </summary>
-        /// <param name="token">Word to input to current state.</param>
-        /// <param name="context">Context of grammar states.</param>
-        /// <returns>Tuple: is transfer available and which state tranfering to.</returns>
-        public (bool, GrammarState) InputWord(GraphToken token, ParserContext context)
-        {
-            foreach (var grammarTransfer in _transfers)
-            {
-                var transferResult = grammarTransfer.InputWord(token, context);
-                if(transferResult.Item1)
-                    return transferResult;
-            }
-
-            return (false, null);
-        }
-
+        
         #region Accessibility Check
         private readonly Dictionary<Symbol, bool> _accessibility = new Dictionary<Symbol, bool>();
 
@@ -493,11 +478,6 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         public TransferCondition TransferCondition { get; }
         public GrammarState TransfedState { get; set; }
         public GrammarState BacktraceState { get; set; }
-
-        public (bool, GrammarState) InputWord(GraphToken token, ParserContext context)
-        {
-            return (TransferCondition.Pass(token, context), TransfedState);
-        }
 
         public static bool operator ==(GrammarTransfer transfer1, GrammarTransfer transfer2)
         {

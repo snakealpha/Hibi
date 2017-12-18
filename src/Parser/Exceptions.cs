@@ -15,7 +15,7 @@ namespace Elecelf.Hibiki.Parser
         /// <returns>Is automata a left-recursion automata.</returns>
         public static bool LeftRecursion(ParserContext context, GrammarAutomata automata)
         {
-            throw new NotImplementedException("Check Left Recursion here. Since Hibiki-Parser is a LL(1) parser, left recursion is not allowed. should be transfer to other formal.");
+            throw new LeftRecursionExceprion("Check Left Recursion here. Since Hibiki-Parser is a LL(1) parser, left recursion is not allowed. should be transfer to other formal.");
         }
     }
 
@@ -53,6 +53,17 @@ namespace Elecelf.Hibiki.Parser
     public class LeftRecursionExceprion : GrammarLegitimacyException
     {
         public LeftRecursionExceprion(string message) : base(message)
+        {
+            
+        }
+    }
+
+    /// <summary>
+    /// This type is used to sign some logic error inside the parser.
+    /// </summary>
+    public class ParserInnerException : Exception
+    {
+        public ParserInnerException(string message) : base(message)
         {
             
         }

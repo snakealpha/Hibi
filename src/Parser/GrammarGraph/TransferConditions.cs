@@ -1,14 +1,11 @@
 using System;
-using System.Linq;
 using Elecelf.Hibiki.Parser.SyntaxParser;
 
 namespace Elecelf.Hibiki.Parser.GrammarGraph
 {
     public abstract class TransferCondition : ISyntaxElement
     {
-        public abstract bool Pass(GraphToken word, ParserContext context);
-
-        public abstract (bool finished, bool success) PassChar(char input, ParserSessionContext sessionContext, ParserContext context);
+        public abstract (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context);
     }
 
     public class EscapeTransferCondition : TransferCondition
@@ -20,16 +17,20 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
 
         public string EscapeLiteral { get; }
 
-        public override bool Pass(GraphToken word, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
         {
-            var hasMatchList = context.EscapeMap.TryGetValue(EscapeLiteral, out var matchList);
-
-            return hasMatchList && matchList.Any(item => word.Literal == item);
-        }
-
-        public override (bool finished, bool success) PassChar(char input, ParserSessionContext sessionContext, ParserContext context)
-        {
-            throw new NotImplementedException();
+            if (context.EscapeMap.TryGetValue(EscapeLiteral, out var list))
+            {
+                foreach (var character in list)
+                {
+                    if (input == character) return (true, true, null);
+                }
+                return (true, false, new ErrorInfo("No Escape Matched."));
+            }
+            else
+            {
+                return (true, false, new ErrorInfo("Escape has not defined."));
+            }
         }
 
         public static bool operator ==(EscapeTransferCondition condition1, EscapeTransferCondition condition2)
@@ -67,14 +68,16 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             get;
         }
 
-        public override bool Pass(GraphToken word, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
         {
-            return CompareReference == word.Literal;
-        }
+            if (CompareReference[thread.CurrentPosition] == input)
+            {
+                if (thread.CurrentPosition == CompareReference.Length - 1)
+                    return (true, true, null);
+                return (false, true, null);
+            }
 
-        public override (bool finished, bool success) PassChar(char input, ParserSessionContext sessionContext, ParserContext context)
-        {
-            throw new NotImplementedException();
+            return (true, false, new ErrorInfo("Syntax Error: String Not Match."));
         }
 
         public static bool operator ==(StringTransferCondition condition1, StringTransferCondition condition2)
@@ -100,9 +103,9 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         }
     }
 
-    public class SymolTransferCondition : TransferCondition
+    public class SymbolTransferCondition : TransferCondition, IParseAsSymbol
     {
-        public SymolTransferCondition(Symbol literal)
+        public SymbolTransferCondition(Symbol literal)
         {
             CompareReference = literal;
         }
@@ -112,30 +115,30 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             get;
         }
 
-        public override bool Pass(GraphToken word, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
         {
-            return CompareReference == word.Grammer.Symbol;
+            throw new ParserInnerException(@"Parser Error: A symbol transfer cannot be transfered directly.");
         }
 
-        public override (bool finished, bool success) PassChar(char input, ParserSessionContext sessionContext, ParserContext context)
+        public Symbol SymbolIdentity
         {
-            throw new NotImplementedException();
+            get => CompareReference;
         }
 
-        public static bool operator ==(SymolTransferCondition condition1, SymolTransferCondition condition2)
+        public static bool operator ==(SymbolTransferCondition condition1, SymbolTransferCondition condition2)
         {
             if (condition1 is null || condition2 is null) return false;
             return condition1.CompareReference == condition2.CompareReference;
         }
 
-        public static bool operator !=(SymolTransferCondition condition1, SymolTransferCondition condition2)
+        public static bool operator !=(SymbolTransferCondition condition1, SymbolTransferCondition condition2)
         {
             return !(condition1 == condition2);
         }
 
         public override bool Equals(object obj)
         {
-            if (obj is SymolTransferCondition condition) return condition.CompareReference == CompareReference;
+            if (obj is SymbolTransferCondition condition) return condition.CompareReference == CompareReference;
             return false;
         }
 
@@ -145,7 +148,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         }
     }
 
-    public class EpsilonTransferCondition:TransferCondition
+    public class EpsilonTransferCondition:TransferCondition, IParserAsEpsilon
     {
         private EpsilonTransferCondition()
         { }
@@ -160,14 +163,9 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             }
         }
 
-        public override bool Pass(GraphToken token, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
         {
-            return token.Grammer.Symbol == context.SymbolHost.GetSymol("eps");
-        }
-
-        public override (bool finished, bool success) PassChar(char input, ParserSessionContext sessionContext, ParserContext context)
-        {
-            throw new NotImplementedException();
+            throw new ParserInnerException(@"Parser Error: A symbol transfer cannot be transfered directly.");
         }
     }
 }

@@ -277,7 +277,8 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                 if (currentToken.GroupLevel > baseGroupLevel)
                 {
                     string newAutomataName = $"{grammarName ?? "base"}_group-{++groupNum}";
-                    var newAutomata = new GrammarAutomata(context.SymbolHost.GetSymol(newAutomataName));
+                    var newAutomataSymbol = context.SymbolHost.GetSymol(newAutomataName);
+                    var newAutomata = new GrammarAutomata(newAutomataSymbol);
 
                     // Token has higher group level: this token is in a inner layer of group.
                     // Get a sub automata of later tokens.
@@ -285,7 +286,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                         ParseTokens(tokens, currentPosition, newAutomata.StartState, context, newAutomataName);
 
                     // Add group into productions as it's a new production.
-                    context.AppendProduction(newAutomataName, newAutomata);
+                    context.AppendProduction(newAutomataSymbol, newAutomata);
 
                     currentPosition = newPosition;
 
@@ -293,7 +294,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                     lastBlockStartState = currentState;
 
                     currentState = TransferState(
-                        new SymolTransferCondition(context.SymbolHost.GetSymol(newAutomataName)),
+                        new SymbolTransferCondition(context.SymbolHost.GetSymol(newAutomataName)),
                         currentState,
                         newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
@@ -344,7 +345,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                     lastBlockStartState = currentState;
 
                     currentState = TransferState(
-                        new SymolTransferCondition(context.SymbolHost.GetSymol(currentToken.Literal)),
+                        new SymbolTransferCondition(context.SymbolHost.GetSymol(currentToken.Literal)),
                         currentState,
                         newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
