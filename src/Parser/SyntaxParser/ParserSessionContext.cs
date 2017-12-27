@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Elecelf.Hibiki.Parser.SyntaxParser
 {
@@ -54,58 +55,99 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
     {
 #region Object pool constructs
         private static readonly int MaxSegments = 64;
-        private static readonly Queue<ParserSegment> Segments = new Queue<ParserSegment>(16);
+        private static readonly Queue<ParserSegment> Segments = new Queue<ParserSegment>(256);
 
-        public static ParserSegment GetSegment()
+        public static ParserSegment GetSegment(int startPosition, ITransfer expectTransfer, uint astDepth, ParserContext context, IEnumerable<ITransfer> exitTransfers)
         {
-            return Segments.Count > 0 ? Segments.Dequeue().ClearState() : new ParserSegment();
+            return Segments.Count > 0 ? 
+                    Segments.Dequeue().ResetState(startPosition, expectTransfer, astDepth, context, exitTransfers) :
+                    new ParserSegment(startPosition, expectTransfer, astDepth, context, exitTransfers);
         }
 
-        public static void ReleaseSegment(ParserSegment thread)
+        public static void ReleaseSegment(ParserSegment segment)
         {
-            if(Segments.Count < MaxSegments) Segments.Enqueue(thread);
+            if(Segments.Count < MaxSegments) Segments.Enqueue(segment);
         }
 #endregion
 
-        private readonly Queue<char> _uncompletedTokenQueue = new Queue<char>(16);
-
-        private ParserSegment()
+        private ParserSegment(int startPosition, ITransfer expectTransfer, uint astDepth, ParserContext context, IEnumerable<ITransfer> exitTransfers)
         {
-            
+            ResetState(startPosition, expectTransfer, astDepth, context, exitTransfers);
         }
 
-        public ParserSegment ClearState()
+        public ParserSegment ResetState(int startPosition, ITransfer expectTransfer, uint astDepth, ParserContext context, IEnumerable<ITransfer> exitTransfers)
         {
-            _uncompletedTokenQueue.Clear();
+            StartPosition = startPosition;
+            NextPosition = startPosition;
+            ExpectTransfer = expectTransfer;
+            AstDepth = astDepth;
+            Completed = false;
+            Context = context;
+            ExiTransfers = exitTransfers;
+
             return this;
         }
 
-        public int CurrentPosition => _uncompletedTokenQueue.Count;
-
-        /// <summary>
-        /// Input next character of script.
-        /// </summary>
-        /// <param name="character">Character inputed.</param>
-        /// <returns>Current position of current thread token.</returns>
-        public int EnqueueCharacter(char character)
+        public int StartPosition
         {
-            _uncompletedTokenQueue.Enqueue(character);
-            return CurrentPosition;
+            get;
+            private set;
         }
 
-        /// <summary>
-        /// Clear state of a thread to get ready for next toke parsing process.
-        /// </summary>
-        /// <returns>Token Literal.</returns>
-        public string FinishToken()
+        public int NextPosition
         {
-            string result = _uncompletedTokenQueue.Count > 0 ? new string(_uncompletedTokenQueue.ToArray()) : null;
-            _uncompletedTokenQueue.Clear();
-            NextParserSegments.Clear();
-
-            return result;
+            get;
+            private set;
         }
 
-        public readonly List<ParserSegment> NextParserSegments = new List<ParserSegment>();
+        public ITransfer ExpectTransfer
+        {
+            get;
+            private set;
+        }
+
+        public uint AstDepth
+        {
+            get;
+            private set;
+        }
+
+        public bool Completed
+        {
+            get;
+            private set;
+        }
+
+        public ParserContext Context
+        {
+            get;
+            private set;
+        }
+
+        public IEnumerable<ITransfer> ExiTransfers
+        {
+            get;
+            private set;
+        }
+        
+        public bool EnqueueCharacter(char character)
+        {
+            if (Completed)
+            {
+                
+            }
+            else
+            {
+                (bool finished, bool success, ErrorInfo errorInfo) =
+                    ExpectTransfer.SyntaxElement.PassChar(character, NextPosition - StartPosition, Context);
+            }
+
+            //return NextPosition++;
+            throw new NotImplementedException();
+        }
+
+        private readonly List<ParserSegment> _predictList = new List<ParserSegment>();
+
+        public IList<ParserSegment> PredictList => _predictList;
     }
 }

@@ -61,6 +61,8 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         /// </summary>
         public readonly GrammarState StartState;
 
+        IState IParseable.StartState { get=>StartState;}
+
         public GrammarAutomata(Symbol? automataSymbol)
         {
             StartState = automataSymbol != null ? new GrammarState(automataSymbol.Value) : new GrammarState();
@@ -70,130 +72,6 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         {
             StartState = new GrammarState();
         }
-
-        #region Get first-set
-        /**
-         * Predict set methods: GetFirstSet, GetFollowSet and CanReceiveEpsilon is not useful for a grammar graph.
-         */
-
-        /*
-
-        /// <summary>
-        /// Get first-set of this automata.
-        /// </summary>
-        /// <returns>First-set of this automata.</returns>
-        public IList<TransferCondition> GetFirstSet(ParserContext context)
-        {
-            var firstSetChecked = new Symbol("FirstSetChecked", 1000u, this);
-            var set = new List<TransferCondition>();
-            var checkedStates = new List<GrammarState>();
-
-            var checkStates = new Queue<GrammarState>();
-            checkStates.Enqueue(StartState);
-            while (checkStates.Count > 0)
-            {
-                var state = checkStates.Dequeue();
-
-                if (state.GetAccessibility(firstSetChecked))
-                    continue;
-
-                state.SetAccessibility(firstSetChecked);
-                checkedStates.Add(state);
-
-                foreach (var transfer in state.Transfers)
-                {
-                    if(transfer.TransferCondition is EpsilonTransferCondition)
-                        checkStates.Enqueue(transfer.TransfedState);
-                    else if (transfer.TransferCondition is SymbolTransferCondition condition)
-                    {
-                        foreach (var production in context.Productions[condition.CompareReference])
-                        {
-                            set.AddRange(production.GetFirstSet(context));
-                        }
-                    }
-                    else
-                    {
-                        set.Add(transfer.TransferCondition);
-                    }
-                }
-            }
-
-            foreach (var checkedState in checkedStates)
-            {
-                checkedState.RemoveAccessibility(firstSetChecked);
-            }
-
-            return set;
-        }
-
-        public bool CanReceiveEpsilon(ParserContext context)
-        {
-            var epsChecked = new Symbol("EpsChecked", 1002u, this);
-            var canReceiveEps = false;
-            var checkedList = new List<GrammarState>();
-
-            var checkStates = new Queue<GrammarState>();
-            checkStates.Enqueue(StartState);
-            while (checkStates.Count > 0)
-            {
-                var state = checkStates.Dequeue();
-
-                if (state.GetAccessibility(epsChecked))
-                    continue;
-
-                state.SetAccessibility(epsChecked);
-                checkedList.Add(state);
-
-                foreach (var transfer in state.Transfers)
-                {
-                    if (transfer.TransferCondition is EpsilonTransferCondition)
-                    {
-                        var targetState = transfer.TransfedState;
-                        if (targetState.IsTerminal)
-                        {
-                            canReceiveEps = true;
-                        }
-                        else
-                        {
-                            checkStates.Enqueue(targetState);
-                        }
-                    }
-                    else if (transfer.TransferCondition is SymbolTransferCondition condition)
-                    {
-                        var productions = context.Productions[condition.CompareReference];
-                        foreach (var production in productions)
-                        {
-                            canReceiveEps |= production.CanReceiveEpsilon(context);
-                            if (canReceiveEps) break;
-                        }
-                    }
-
-                    if(canReceiveEps)
-                        goto FinishChcek;
-                }
-            }
-
-        FinishChcek:
-            foreach(var checkedState in checkedList)
-                checkedState.RemoveAccessibility(epsChecked);
-
-            return canReceiveEps;
-        }
-
-        /// <summary>
-        /// Get follow-set of all words in this automata.
-        /// </summary>
-        /// <returns>Follow-sets of all words in this automata.</returns>
-        public IDictionary<Symbol, IList<TransferCondition>> GetFollowSet(ParserContext context)
-        {
-            var result = new Dictionary<Symbol, List<TransferCondition>>();
-
-            throw new NotImplementedException();
-        }
-
-        */
-
-        #endregion
     }
 
     internal class GrammarStateTransferList : IList<GrammarTransfer>

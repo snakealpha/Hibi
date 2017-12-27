@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using Elecelf.Hibiki.Parser.GrammarGraph;
 using Elecelf.Hibiki.Parser.SyntaxParser;
 
@@ -89,7 +90,37 @@ namespace Elecelf.Hibiki.Parser
             IEnumerable<char> script)
         {
             var sessionContext = new ParserSessionContext(){ScriptInfo = new ParserScriptInfo(sourceType, source, script)};
-            var startupProduction = context.StartProduction;
+
+            // Initialize state of parse workflow.
+            var startupState = context.StartProduction.StartState;
+            var predictParsePathes = new Queue<ParserSegment>();
+            foreach (var transfer in startupState.Transfers)
+            {
+                predictParsePathes.Enqueue(ParserSegment.GetSegment(0, transfer, 0, context, null));
+            }
+
+            // Input chars
+            StringBuilder sourceScript = new StringBuilder(4096);
+            (char nextChar, bool canContinue) = sessionContext.GetNextChar();
+            while (canContinue)
+            {
+                sourceScript.Append(nextChar);
+
+                for (int i = 0; i != predictParsePathes.Count; i++)
+                {
+                    var segment = predictParsePathes.Dequeue();
+                    if (segment.EnqueueCharacter(nextChar))
+                    {
+                        predictParsePathes.Enqueue(segment);
+                    }
+                    else
+                    {
+                        ParserSegment.ReleaseSegment(segment);
+                    }
+                }
+
+                (nextChar, canContinue) = sessionContext.GetNextChar();
+            }
 
             throw new NotImplementedException();
         }

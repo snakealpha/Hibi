@@ -49,6 +49,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Symbol.cs" />
     <Compile Include="SyntaxParser\ErrorInfo.cs" />
+    <Compile Include="SyntaxParser\Interfaces\IAstNode.cs" />
     <Compile Include="SyntaxParser\Interfaces\IParseable.cs" />
     <Compile Include="SyntaxParser\Interfaces\ISyntaxElement.cs" />
     <Compile Include="SyntaxParser\Interfaces\IState.cs" />

@@ -8,19 +8,14 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
 {
     public enum TokenSource
     {
-        Othoer,
+        Other,
         File,
         Thunk,
     }
 
-    public class Token
+    public struct Token
     {
-        public string Literal { set; get; }
-
-        public IEnumerable<int> Range;
-
-        public TokenSource SourceType;
-
-        public string Source;
+        public uint LiteralStart { get; set; }
+        public uint LiteralLength { get; set; }
     }
 }

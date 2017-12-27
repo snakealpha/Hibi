@@ -5,7 +5,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
 {
     public abstract class TransferCondition : ISyntaxElement
     {
-        public abstract (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context);
+        public abstract (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context);
     }
 
     public class EscapeTransferCondition : TransferCondition
@@ -17,7 +17,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
 
         public string EscapeLiteral { get; }
 
-        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context)
         {
             if (context.EscapeMap.TryGetValue(EscapeLiteral, out var list))
             {
@@ -68,11 +68,11 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             get;
         }
 
-        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context)
         {
-            if (CompareReference[thread.CurrentPosition] == input)
+            if (CompareReference[offset] == input)
             {
-                if (thread.CurrentPosition == CompareReference.Length - 1)
+                if (offset == CompareReference.Length - 1)
                     return (true, true, null);
                 return (false, true, null);
             }
@@ -115,7 +115,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             get;
         }
 
-        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context)
         {
             throw new ParserInnerException(@"Parser Error: A symbol transfer cannot be transfered directly.");
         }
@@ -163,7 +163,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             }
         }
 
-        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, ParserSegment thread, ParserSessionContext sessionContext, ParserContext context)
+        public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context)
         {
             throw new ParserInnerException(@"Parser Error: A symbol transfer cannot be transfered directly.");
         }
