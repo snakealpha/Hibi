@@ -210,7 +210,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                 if (lookAroundPoint == rawString.Length)
                 {
                     // A ETX char used to sign end of a automation. Also close a string state.
-                    lookaroundChar = FinializeSymbol;
+                    lookaroundChar = ParserContext.FinializeSymbol;
                 }
                 else if (lookAroundPoint < rawString.Length)
                 {
@@ -223,7 +223,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             }
 
             // cost all chars:
-            if (currentChar == FinializeSymbol || currentChar == null)
+            if (currentChar == ParserContext.FinializeSymbol || currentChar == null)
             {
                 // holding chars are not empty: throw exception.
                 if (holdingChars.Count > 0)
@@ -440,7 +440,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
 
         private static string MakeStringFromQueue(IEnumerable<char?> queue)
         {
-            var holdingCharsArray = (from c in queue where c.HasValue && c.Value != FinializeSymbol select c.Value).ToArray();
+            var holdingCharsArray = (from c in queue where c.HasValue && c.Value != ParserContext.FinializeSymbol select c.Value).ToArray();
             return new string(holdingCharsArray);
         }
     }

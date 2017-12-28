@@ -1,5 +1,7 @@
 ﻿using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Elecelf.Hibiki.Parser.SyntaxParser
 {
@@ -57,11 +59,11 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         private static readonly int MaxSegments = 64;
         private static readonly Queue<ParserSegment> Segments = new Queue<ParserSegment>(256);
 
-        public static ParserSegment GetSegment(int startPosition, ITransfer expectTransfer, uint astDepth, ParserContext context, IEnumerable<ITransfer> exitTransfers)
+        public static ParserSegment GetSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
         {
             return Segments.Count > 0 ? 
-                    Segments.Dequeue().ResetState(startPosition, expectTransfer, astDepth, context, exitTransfers) :
-                    new ParserSegment(startPosition, expectTransfer, astDepth, context, exitTransfers);
+                    Segments.Dequeue().ResetState(startPosition, expectTransfer, context, parentSegment) :
+                    new ParserSegment(startPosition, expectTransfer, context, parentSegment);
         }
 
         public static void ReleaseSegment(ParserSegment segment)
@@ -70,20 +72,19 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         }
 #endregion
 
-        private ParserSegment(int startPosition, ITransfer expectTransfer, uint astDepth, ParserContext context, IEnumerable<ITransfer> exitTransfers)
+        private ParserSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
         {
-            ResetState(startPosition, expectTransfer, astDepth, context, exitTransfers);
+            ResetState(startPosition, expectTransfer, context, parentSegment);
         }
 
-        public ParserSegment ResetState(int startPosition, ITransfer expectTransfer, uint astDepth, ParserContext context, IEnumerable<ITransfer> exitTransfers)
+        public ParserSegment ResetState(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
         {
             StartPosition = startPosition;
             NextPosition = startPosition;
             ExpectTransfer = expectTransfer;
-            AstDepth = astDepth;
             Completed = false;
             Context = context;
-            ExiTransfers = exitTransfers;
+            ParentSegment = parentSegment;
 
             return this;
         }
@@ -106,12 +107,6 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             private set;
         }
 
-        public uint AstDepth
-        {
-            get;
-            private set;
-        }
-
         public bool Completed
         {
             get;
@@ -124,7 +119,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             private set;
         }
 
-        public IEnumerable<ITransfer> ExiTransfers
+        public ParserSegment ParentSegment
         {
             get;
             private set;
@@ -132,18 +127,91 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         
         public bool EnqueueCharacter(char character)
         {
+            // After all characters are inputed, a FinializeSymbol will inputed to lop uncompleted predict segments.
+            if (character == ParserContext.FinializeSymbol &&
+                Completed && PredictList.Count == 0)
+                return true;
+
             if (Completed)
             {
-                
+                _predictList.RemoveAll(segment => !segment.EnqueueCharacter(character));
+                if (_predictList.Count == 0)
+                    return false;
+
+                return true;
+            }
+
+            // else
+
+            // impossible be epsilon, epsilon transfer should be ignored when define predict set.
+            System.Diagnostics.Debug.Assert(!(ExpectTransfer.SyntaxElement is IParserAsEpsilon), @"Cannot be a epsilon transfer!!!");
+            
+            bool success = false;
+
+            if (ExpectTransfer.SyntaxElement is IParseAsSymbol symbolElement)
+            {
+                // Enter another production!!!
+                Completed = true;
+                var productionGroup = Context.Productions[symbolElement.SymbolIdentity];
+                foreach (var production in productionGroup)
+                {
+                    foreach (var predictTransfer in production.StartState.PredictTransfers)
+                    {
+                        var segment = GetSegment(
+                            NextPosition,
+                            predictTransfer,
+                            Context,
+                            this);
+                        segment.EnqueueCharacter(character);
+                        PredictList.Add(segment);
+                    }
+                }
             }
             else
             {
-                (bool finished, bool success, ErrorInfo errorInfo) =
+                // string parsing.
+
+                bool finished;
+
+                (finished, success, _) =
                     ExpectTransfer.SyntaxElement.PassChar(character, NextPosition - StartPosition, Context);
+
+                Completed = finished && success;
+
+                if (Completed)
+                {
+                    // Transfer inside a production
+                    var predictTransfers = ExpectTransfer.TransfedState.PredictTransfers;
+                    foreach (var predictTransfer in predictTransfers)
+                    {
+                        var segment = GetSegment(
+                            NextPosition + 1,
+                            predictTransfer,
+                            Context,
+                            ParentSegment);
+                        PredictList.Add(segment);
+                    }
+
+                    // Leave a production
+                    //if (ExpectTransfer.TransfedState.IsTerminal && ParentSegment != null)
+                    //{
+                    //    foreach (var exitTransfer in ParentSegment.ExpectTransfer.TransfedState.PredictTransfers)
+                    //    {
+                    //        var segment = GetSegment(
+                    //            NextPosition + 1,
+                    //            exitTransfer,
+                    //            Context,
+                    //            ParentSegment.ParentSegment);
+                    //        PredictList.Add(segment);
+                    //    }
+                    //}
+                    // <-- Wrong.
+                }
             }
 
-            //return NextPosition++;
-            throw new NotImplementedException();
+            NextPosition++;
+
+            return success;
         }
 
         private readonly List<ParserSegment> _predictList = new List<ParserSegment>();

@@ -7,7 +7,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         public Token Token { set; get; }
         public Symbol ProductionSymbol { set; get; }
 
-        public IEnumerable<IAstNode> LeafNodes { get; } = new List<IAstNode>();
+        public IList<IAstNode> LeafNodes { get; } = new List<IAstNode>();
 
         public bool IsPending => false;
     }

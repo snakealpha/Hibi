@@ -54,8 +54,6 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             }
         }
 
-        public const char FinializeSymbol = (char)3;
-
         /// <summary>
         /// Start state of the automata.
         /// </summary>
@@ -272,6 +270,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                             continue;
 
                         state.SetAccessibility(accessed);
+                        accessedStates.Add(state);
 
                         _isTerminal = _isTerminal | state.SelfIsTerminal;
 
@@ -296,7 +295,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             }
         }
 
-        public GrammarTransfer[] UsableTransfers
+        public IEnumerable<ITransfer> PredictTransfers
         {
             get
             {

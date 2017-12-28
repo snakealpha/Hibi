@@ -13,7 +13,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         /// </summary>
         bool IsPending { get; }
 
-        IEnumerable<IAstNode> LeafNodes { get; }
+        IList<IAstNode> LeafNodes { get; }
 
         Token Token { get; }
 
