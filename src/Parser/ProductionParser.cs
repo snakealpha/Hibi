@@ -42,7 +42,7 @@ namespace Elecelf.Hibiki.Parser
 
         public readonly Dictionary<Symbol, ProductionsGroup> Productions = new Dictionary<Symbol, ProductionsGroup>();
 
-        public void AppendProduction(Symbol productionName, GrammarAutomata production)
+        public void AppendProduction(Symbol productionName, IParseable production)
         {
             if(Productions.TryGetValue(productionName, out var productionGroup))
                 productionGroup.Add(production);
@@ -103,23 +103,20 @@ namespace Elecelf.Hibiki.Parser
 
             // Input chars
             StringBuilder sourceScript = new StringBuilder(4096);
-            (char nextChar, bool canContinue) = sessionContext.GetNextChar();
-            while (canContinue)
+            foreach (char inputChar in sessionContext.ScriptInfo.SourceProvider)
             {
-                sourceScript.Append(nextChar);
+                sourceScript.Append(inputChar);
 
-                bool success = rootParserSegment.EnqueueCharacter(nextChar);
-
-                (nextChar, canContinue) = sessionContext.GetNextChar();
+                bool success = rootParserSegment.EnqueueCharacter(inputChar);
             }
 
             // At last, input a epilson char to lop uncompleted predict path.
             bool allSuccess = rootParserSegment.EnqueueCharacter(ParserContext.FinializeSymbol);
 
             // From ParseSegments To AstTree
-            Stack<Tuple<ParserSegment, IAstNode>> nodeStack = new Stack<Tuple<ParserSegment, IAstNode>>(64);
+            Stack<ValueTuple<ParserSegment, IAstNode>> nodeStack = new Stack<ValueTuple<ParserSegment, IAstNode>>(64);
             var traverseParserSegment = rootParserSegment;
-            ParserSegment recordParserSegment = null;
+            ValueTuple<ParserSegment, IAstNode> recordParserSegment = (null, null);
             while (traverseParserSegment != null)
             {
                 var astNode = new SyntaxNode
@@ -131,20 +128,25 @@ namespace Elecelf.Hibiki.Parser
                     }
                 };
                 
-                if (traverseParserSegment.ParentSegment == recordParserSegment)
+                if (traverseParserSegment.ParentSegment == recordParserSegment.Item1)
                 {
                     // Add new layer
-                    if (nodeStack.Count > 0)
+                    if (recordParserSegment.Item2 != null)
                     {
-                        nodeStack.Peek().Item2.LeafNodes.Add(astNode);
+                        recordParserSegment.Item2.LeafNodes.Add(astNode);
+                        if (nodeStack.Peek().Item2 != recordParserSegment.Item2)
+                            nodeStack.Push(recordParserSegment);
                     }
-                    nodeStack.Push(new Tuple<ParserSegment, IAstNode>(traverseParserSegment,astNode));
+                    else
+                    {
+                        nodeStack.Push((traverseParserSegment, astNode));
+                    }
                 }
                 else
                 {
-                    Debug.Assert(recordParserSegment != null, nameof(recordParserSegment) + " != null");
+                    Debug.Assert(recordParserSegment.Item1 != null, nameof(recordParserSegment) + " != null");
 
-                    if(traverseParserSegment.ParentSegment == recordParserSegment.ParentSegment)
+                    if(traverseParserSegment.ParentSegment == recordParserSegment.Item1.ParentSegment)
                     {
                         // Keep current layer
                         nodeStack.Peek().Item2.LeafNodes.Add(astNode);
@@ -152,17 +154,26 @@ namespace Elecelf.Hibiki.Parser
                     else
                     {
                         // Return to last layer
-                        nodeStack.Pop();
+                        for(uint i = 0; i != traverseParserSegment.LayerTraceback; i++)
+                            nodeStack.Pop();
 
                         if(nodeStack.Count>0)
                             nodeStack.Peek().Item2.LeafNodes.Add(astNode);
                     }
                 }
 
-                recordParserSegment = traverseParserSegment;
+                recordParserSegment = (traverseParserSegment, astNode);
                 traverseParserSegment =
                     traverseParserSegment.PredictList.Count > 0 ? traverseParserSegment.PredictList[0] : null;
             }
+
+            IAstNode rootAstNode = null;
+            while (nodeStack.Count > 0)
+            {
+                (_, rootAstNode) = nodeStack.Pop();
+            }
+            if (rootAstNode != null)
+                return (rootAstNode, true);
 
             return (null, false);
         }

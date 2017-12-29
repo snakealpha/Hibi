@@ -112,6 +112,26 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                     {
                         holdingChars.Enqueue(currentChar);
                         currentBlockState = ParseBlockState.String;
+
+                        if (lookaroundChar == '{' ||
+                            lookaroundChar == '%' ||
+                            lookaroundChar == '|' ||
+                            lookaroundChar == '*' ||
+                            lookaroundChar == '(' ||
+                            lookaroundChar == ')' ||
+                            lookaroundChar == ParserContext.FinializeSymbol)
+                        {
+                            var holdingString = MakeStringFromQueue(holdingChars);
+                            holdingChars.Clear();
+                            tokens.Add(new ScannerToken()
+                            {
+                                GroupLevel = currentGroupLevel,
+                                TransferType = ParseBlockState.String,
+                                Literal = holdingString,
+                            });
+
+                            currentBlockState = ParseBlockState.Outline;
+                        }
                     }
 
                 }
@@ -188,7 +208,8 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                             lookaroundChar == '|' ||
                             lookaroundChar == '*' ||
                             lookaroundChar == '(' ||
-                            lookaroundChar == ')')
+                            lookaroundChar == ')' ||
+                            lookaroundChar == ParserContext.FinializeSymbol)
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
                             holdingChars.Clear();

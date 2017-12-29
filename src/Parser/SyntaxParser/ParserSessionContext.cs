@@ -1,7 +1,4 @@
-﻿using System;
-using System.CodeDom.Compiler;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 
 namespace Elecelf.Hibiki.Parser.SyntaxParser
 {
@@ -35,8 +32,6 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             return (_charPrivoiderEnumerator.Current, _charPrivoiderEnumerator.MoveNext());
         }
 
-        private int charIndex = 0;
-
         public ParserScriptInfo ScriptInfo
         {
             get { return _scriptInfo; }
@@ -44,7 +39,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             {
                 _scriptInfo = value;
                 _charPrivoiderEnumerator = _scriptInfo.SourceProvider.GetEnumerator();
-                charIndex = 0;
+                _charPrivoiderEnumerator.MoveNext();
             }
         }
     }
@@ -124,6 +119,12 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             get;
             private set;
         }
+
+        public uint LayerTraceback
+        {
+            get;
+            private set;
+        }
         
         public bool EnqueueCharacter(char character)
         {
@@ -193,19 +194,29 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                     }
 
                     // Leave a production
-                    //if (ExpectTransfer.TransfedState.IsTerminal && ParentSegment != null)
-                    //{
-                    //    foreach (var exitTransfer in ParentSegment.ExpectTransfer.TransfedState.PredictTransfers)
-                    //    {
-                    //        var segment = GetSegment(
-                    //            NextPosition + 1,
-                    //            exitTransfer,
-                    //            Context,
-                    //            ParentSegment.ParentSegment);
-                    //        PredictList.Add(segment);
-                    //    }
-                    //}
-                    // <-- Wrong.
+                    if (ExpectTransfer.TransfedState.IsTerminal)
+                    {
+                        LayerTraceback = 0;
+                        var tracebackNode = ParentSegment;
+                        while (tracebackNode != null)
+                        {
+                            LayerTraceback++;
+                            foreach (var transfer in tracebackNode.ExpectTransfer.TransfedState.PredictTransfers)
+                            {
+                                var segment = GetSegment(
+                                    NextPosition + 1,
+                                    transfer,
+                                    Context,
+                                    tracebackNode.ParentSegment);
+                                PredictList.Add(segment);
+                            }
+
+                            if (tracebackNode.ExpectTransfer.TransfedState.IsTerminal)
+                            {
+                                tracebackNode = tracebackNode.ParentSegment;
+                            }
+                        }
+                    }
                 }
             }
 
