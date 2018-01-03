@@ -59,12 +59,18 @@
     <Compile Include="SyntaxParser\Scope.cs" />
     <Compile Include="SyntaxParser\SyntaxNode.cs" />
     <Compile Include="SyntaxParser\Token.cs" />
-    <Compile Include="GrammarGraph\GrammarAutomata.cs" />
-    <Compile Include="GrammarGraph\GrammarAutomataAlgorithm.cs" />
-    <Compile Include="GrammarGraph\TransferConditions.cs" />
+    <Compile Include="SyntaxParser\GrammarGraph\GrammarAutomata.cs" />
+    <Compile Include="SyntaxParser\GrammarGraph\GrammarAutomataAlgorithm.cs" />
+    <Compile Include="SyntaxParser\TransferConditions.cs" />
+    <Compile Include="SyntaxParser\TransferTable\SyntaxElementProvider.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Emitter\" />
+    <Folder Include="Executer\" />
+    <Folder Include="Optimizer\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

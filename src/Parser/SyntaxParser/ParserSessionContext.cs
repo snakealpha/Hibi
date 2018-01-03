@@ -231,15 +231,6 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             }
             else
             {
-                // string parsing.
-
-                //if (_failed)
-                //{
-                //    NextPosition++;
-                //    return;
-                //}
-
-
                 bool finished;
 
                 (finished, _success, _) =
