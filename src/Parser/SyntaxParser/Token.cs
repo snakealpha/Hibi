@@ -15,7 +15,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
 
     public struct Token
     {
-        public uint LiteralStart { get; set; }
-        public uint LiteralLength { get; set; }
+        public uint LiteralStart;
+        public uint LiteralLength;
     }
 }

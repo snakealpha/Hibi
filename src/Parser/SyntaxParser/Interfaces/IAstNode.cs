@@ -18,5 +18,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         Token Token { get; }
 
         Symbol ProductionSymbol { get; }
+
+        void SetToken(uint start, uint length);
     }
 }

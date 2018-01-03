@@ -27,14 +27,11 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         private ParserScriptInfo _scriptInfo;
         private IEnumerator<char> _charPrivoiderEnumerator;
 
-        public (char nextChar, bool finished) GetNextChar()
-        {
-            return (_charPrivoiderEnumerator.Current, _charPrivoiderEnumerator.MoveNext());
-        }
+        public (char nextChar, bool finished) GetNextChar() => (_charPrivoiderEnumerator.Current, _charPrivoiderEnumerator.MoveNext());
 
         public ParserScriptInfo ScriptInfo
         {
-            get { return _scriptInfo; }
+            get => _scriptInfo;
             set
             {
                 _scriptInfo = value;
@@ -51,7 +48,8 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
     public class ParserSegment
     {
 #region Object pool constructs
-        private static readonly int MaxSegments = 64;
+
+        private const int MaxSegments = 64;
         private static readonly Queue<ParserSegment> Segments = new Queue<ParserSegment>(256);
 
         public static ParserSegment GetSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
@@ -72,7 +70,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             ResetState(startPosition, expectTransfer, context, parentSegment);
         }
 
-        public ParserSegment ResetState(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
+        private ParserSegment ResetState(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
         {
             StartPosition = startPosition;
             NextPosition = startPosition;
@@ -95,6 +93,8 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             get;
             private set;
         }
+
+        public int Length => NextPosition - StartPosition;
 
         public ITransfer ExpectTransfer
         {
@@ -135,7 +135,13 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
 
             if (Completed)
             {
-                _predictList.RemoveAll(segment => !segment.EnqueueCharacter(character));
+                var failedPredictLists = _predictList.FindAll(segment => !segment.EnqueueCharacter(character));
+                foreach (var segment in failedPredictLists)
+                {
+                    segment.Release();
+                }
+
+                _predictList.RemoveAll(segment => failedPredictLists.Contains(segment));
                 if (_predictList.Count == 0)
                     return false;
 
@@ -163,7 +169,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                             predictTransfer,
                             Context,
                             this);
-                        segment.EnqueueCharacter(character);
+                        success = segment.EnqueueCharacter(character);
                         PredictList.Add(segment);
                     }
                 }
@@ -215,6 +221,10 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                             {
                                 tracebackNode = tracebackNode.ParentSegment;
                             }
+                            else
+                            {
+                                tracebackNode = null;
+                            }
                         }
                     }
                 }
@@ -223,6 +233,16 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             NextPosition++;
 
             return success;
+        }
+
+        public void Release()
+        {
+            foreach (var segment in PredictList)
+            {
+                segment.Release();
+            }
+
+            ReleaseSegment(this);
         }
 
         private readonly List<ParserSegment> _predictList = new List<ParserSegment>();
