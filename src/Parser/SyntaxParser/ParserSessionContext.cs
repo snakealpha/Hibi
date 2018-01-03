@@ -183,15 +183,28 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         {
             if (Completed)
             {
+                bool allFailed = true;
                 foreach (var segment in _predictList)
                 {
-                    segmentQueue.Enqueue(segment);
+                    if(!segment._failed)
+                        segmentQueue.Enqueue(segment);
+
+                    allFailed = allFailed && segment._failed;
+                }
+
+                if (allFailed)
+                {
+                    _failed = true;
+                    Completed = false;
                 }
 
                 return;
             }
 
             // else
+
+            if (_failed)
+                return;
 
             // impossible be epsilon, epsilon transfer should be ignored when define predict set.
             System.Diagnostics.Debug.Assert(!(ExpectTransfer.SyntaxElement is IParserAsEpsilon), @"Cannot be a epsilon transfer!!!");
@@ -220,11 +233,11 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             {
                 // string parsing.
 
-                if (_failed)
-                {
-                    NextPosition++;
-                    return;
-                }
+                //if (_failed)
+                //{
+                //    NextPosition++;
+                //    return;
+                //}
 
 
                 bool finished;
@@ -269,14 +282,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                                 PredictList.Add(segment);
                             }
 
-                            if (tracebackNode.ExpectTransfer.TransfedState.IsTerminal)
-                            {
-                                tracebackNode = tracebackNode.ParentSegment;
-                            }
-                            else
-                            {
-                                tracebackNode = null;
-                            }
+                            tracebackNode = tracebackNode.ExpectTransfer.TransfedState.IsTerminal ? tracebackNode.ParentSegment : null;
                         }
                     }
                 }
