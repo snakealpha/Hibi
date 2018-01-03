@@ -99,7 +99,7 @@ namespace Elecelf.Hibiki.Parser
             {
                 TransfedState = new GrammarState(){SelfIsTerminal = true}
             };
-            var rootParserSegment = ParserSegment.GetSegment(0, startupTransfer, context, null);
+            var rootParserSegment = ParserSegment.GetSegment(0, startupTransfer, context, sessionContext, null);
 
             // Input chars
             var sourceScript = new StringBuilder(4096);
@@ -107,11 +107,11 @@ namespace Elecelf.Hibiki.Parser
             {
                 sourceScript.Append(inputChar);
 
-                var success = rootParserSegment.EnqueueCharacter(inputChar);
+                rootParserSegment.EnqueueCharacter(inputChar);
             }
 
             // At last, input a epilson char to lop uncompleted predict path.
-            bool allSuccess = rootParserSegment.EnqueueCharacter(ParserContext.FinializeSymbol);
+            bool allSuccess = rootParserSegment.Prune();
 
             // From ParseSegments To AstTree
             Stack<ValueTuple<ParserSegment, IAstNode>> nodeStack = new Stack<ValueTuple<ParserSegment, IAstNode>>(64);

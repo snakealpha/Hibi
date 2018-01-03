@@ -39,6 +39,8 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                 _charPrivoiderEnumerator.MoveNext();
             }
         }
+
+        public readonly Queue<ParserSegment> PeekingSegments = new Queue<ParserSegment>(64);
     }
 
     /// <summary>
@@ -52,11 +54,11 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         private const int MaxSegments = 64;
         private static readonly Queue<ParserSegment> Segments = new Queue<ParserSegment>(256);
 
-        public static ParserSegment GetSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
+        public static ParserSegment GetSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSessionContext sessionContext, ParserSegment parentSegment)
         {
             return Segments.Count > 0 ? 
-                    Segments.Dequeue().ResetState(startPosition, expectTransfer, context, parentSegment) :
-                    new ParserSegment(startPosition, expectTransfer, context, parentSegment);
+                    Segments.Dequeue().ResetState(startPosition, expectTransfer, context, sessionContext, parentSegment) :
+                    new ParserSegment(startPosition, expectTransfer, context, sessionContext, parentSegment);
         }
 
         public static void ReleaseSegment(ParserSegment segment)
@@ -65,12 +67,12 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
         }
 #endregion
 
-        private ParserSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
+        private ParserSegment(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSessionContext sessionContext, ParserSegment parentSegment)
         {
-            ResetState(startPosition, expectTransfer, context, parentSegment);
+            ResetState(startPosition, expectTransfer, context, sessionContext, parentSegment);
         }
 
-        private ParserSegment ResetState(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSegment parentSegment)
+        private ParserSegment ResetState(int startPosition, ITransfer expectTransfer, ParserContext context, ParserSessionContext sessionContext, ParserSegment parentSegment)
         {
             StartPosition = startPosition;
             NextPosition = startPosition;
@@ -78,6 +80,10 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             Completed = false;
             Context = context;
             ParentSegment = parentSegment;
+            LayerTraceback = 0;
+            _success = false;
+            _failed = false;
+            _pasrserSessionContext = sessionContext;
 
             return this;
         }
@@ -125,35 +131,70 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             get;
             private set;
         }
-        
-        public bool EnqueueCharacter(char character)
-        {
-            // After all characters are inputed, a FinializeSymbol will inputed to lop uncompleted predict segments.
-            if (character == ParserContext.FinializeSymbol &&
-                Completed && PredictList.Count == 0)
-                return true;
 
+        private bool _success = false;
+        private bool _failed = false;
+
+        public bool Success
+        {
+            get
+            {
+                if (ExpectTransfer.SyntaxElement is IParseAsSymbol)
+                {
+                    if (PredictList.Count == 0)
+                        return false;
+
+                    foreach (var segment in PredictList)
+                    {
+                        if (!segment.Success)
+                            return false;
+                    }
+                }
+                return Completed;
+            }
+        }
+
+        private ParserSessionContext _pasrserSessionContext;
+        
+        public void EnqueueCharacter(char character)
+        {
+            _pasrserSessionContext.PeekingSegments.Clear();
+
+            _pasrserSessionContext.PeekingSegments.Enqueue(this);
+            while (_pasrserSessionContext.PeekingSegments.Count > 0)
+            {
+                var segment = _pasrserSessionContext.PeekingSegments.Dequeue();
+                segment.EnqueueCharacter(character, _pasrserSessionContext.PeekingSegments);
+            }
+        }
+
+        public bool Prune()
+        {
+            var failedPredictList = _predictList.FindAll(segment => !segment.Prune());
+            _predictList.RemoveAll(segment => failedPredictList.Contains(segment));
+            foreach (var segment in failedPredictList)
+            {
+                segment.Release();
+            }
+            return Success;
+        }
+        
+        private void EnqueueCharacter(char character, Queue<ParserSegment> segmentQueue)
+        {
             if (Completed)
             {
-                var failedPredictLists = _predictList.FindAll(segment => !segment.EnqueueCharacter(character));
-                foreach (var segment in failedPredictLists)
+                foreach (var segment in _predictList)
                 {
-                    segment.Release();
+                    segmentQueue.Enqueue(segment);
                 }
 
-                _predictList.RemoveAll(segment => failedPredictLists.Contains(segment));
-                if (_predictList.Count == 0)
-                    return false;
-
-                return true;
+                return;
             }
 
             // else
 
             // impossible be epsilon, epsilon transfer should be ignored when define predict set.
             System.Diagnostics.Debug.Assert(!(ExpectTransfer.SyntaxElement is IParserAsEpsilon), @"Cannot be a epsilon transfer!!!");
-            
-            bool success = false;
 
             if (ExpectTransfer.SyntaxElement is IParseAsSymbol symbolElement)
             {
@@ -168,8 +209,9 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                             NextPosition,
                             predictTransfer,
                             Context,
+                            _pasrserSessionContext,
                             this);
-                        success = segment.EnqueueCharacter(character);
+                        segmentQueue.Enqueue(segment);
                         PredictList.Add(segment);
                     }
                 }
@@ -178,12 +220,20 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             {
                 // string parsing.
 
+                if (_failed)
+                {
+                    NextPosition++;
+                    return;
+                }
+
+
                 bool finished;
 
-                (finished, success, _) =
+                (finished, _success, _) =
                     ExpectTransfer.SyntaxElement.PassChar(character, NextPosition - StartPosition, Context);
 
-                Completed = finished && success;
+                Completed = finished && _success;
+                _failed = finished && !_success;
 
                 if (Completed)
                 {
@@ -195,6 +245,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                             NextPosition + 1,
                             predictTransfer,
                             Context,
+                            _pasrserSessionContext,
                             ParentSegment);
                         PredictList.Add(segment);
                     }
@@ -213,6 +264,7 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                                     NextPosition + 1,
                                     transfer,
                                     Context,
+                                    _pasrserSessionContext,
                                     tracebackNode.ParentSegment);
                                 PredictList.Add(segment);
                             }
@@ -231,8 +283,6 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
             }
 
             NextPosition++;
-
-            return success;
         }
 
         public void Release()
