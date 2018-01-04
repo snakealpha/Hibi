@@ -68,6 +68,17 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                     {
                         currentBlockState = ParseBlockState.Escape;
                     }
+                    // Epsilon format as "~"
+                    else if (currentChar == '~')
+                    {
+                        holdingChars.Clear();
+                        tokens.Add(new ScannerToken()
+                        {
+                            GroupLevel = currentGroupLevel,
+                            Literal = "~",
+                            TransferType = ParseBlockState.Epsilon,
+                        });
+                    }
                     // Grammar format as "{Grammar Name}"
                     else if (currentChar == '{')
                     {
@@ -119,6 +130,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                             lookaroundChar == '*' ||
                             lookaroundChar == '(' ||
                             lookaroundChar == ')' ||
+                            lookaroundChar == '~' ||
                             lookaroundChar == ParserContext.FinializeSymbol)
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
@@ -209,6 +221,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                             lookaroundChar == '*' ||
                             lookaroundChar == '(' ||
                             lookaroundChar == ')' ||
+                            lookaroundChar == '~' ||
                             lookaroundChar == ParserContext.FinializeSymbol)
                         {
                             var holdingString = MakeStringFromQueue(holdingChars);
@@ -382,6 +395,17 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
                         currentState,
                         newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
                     currentSubAutomata.EndState = currentState;
+
+                    lastBlockEndState = currentState;
+                }
+                else if (currentToken.TransferType == ParseBlockState.Epsilon)
+                {
+                    lastBlockStartState = currentState;
+
+                    currentState = TransferState(
+                        EpsilonTransferCondition.Instance,
+                        currentState,
+                        newStateSymbol: context.SymbolHost.GetSymol("State_" + context.GetNextStateIndex()));
 
                     lastBlockEndState = currentState;
                 }

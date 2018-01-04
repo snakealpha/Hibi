@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Elecelf.Hibiki.Parser
 {
@@ -30,6 +31,19 @@ namespace Elecelf.Hibiki.Parser
                     _nameToSymbolMap[name] = new Symbol(name, _currentAssignedSymolSerial++, this);
             }
             return _nameToSymbolMap[name];
+        }
+
+        public bool InsertSymbol(string name, uint symbolId)
+        {
+            lock (this)
+            {
+                if (_nameToSymbolMap.ContainsKey(name))
+                    return false;
+
+                _nameToSymbolMap[name] = new Symbol(name, symbolId, this);
+                _currentAssignedSymolSerial = Math.Max(_currentAssignedSymolSerial, symbolId);
+                return true;
+            }
         }
     }
 

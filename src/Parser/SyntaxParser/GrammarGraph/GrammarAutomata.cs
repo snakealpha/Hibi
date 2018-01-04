@@ -34,6 +34,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             RawChar,
             Grammar,
             String,
+            Epsilon,
             // used for OR operator and Kleen Star
             Or,
             KleenStar,

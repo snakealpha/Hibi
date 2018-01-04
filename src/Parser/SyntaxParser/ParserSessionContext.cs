@@ -227,6 +227,11 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
                         segmentQueue.Enqueue(segment);
                         PredictList.Add(segment);
                     }
+
+                    if (production.StartState.IsTerminal)
+                    {
+                        FinishSegment(0, segmentQueue);
+                    }
                 }
             }
             else
@@ -241,45 +246,54 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser
 
                 if (Completed)
                 {
-                    // Transfer inside a production
-                    var predictTransfers = ExpectTransfer.TransfedState.PredictTransfers;
-                    foreach (var predictTransfer in predictTransfers)
-                    {
-                        var segment = GetSegment(
-                            NextPosition + 1,
-                            predictTransfer,
-                            Context,
-                            _pasrserSessionContext,
-                            ParentSegment);
-                        PredictList.Add(segment);
-                    }
-
-                    // Leave a production
-                    if (ExpectTransfer.TransfedState.IsTerminal)
-                    {
-                        LayerTraceback = 0;
-                        var tracebackNode = ParentSegment;
-                        while (tracebackNode != null)
-                        {
-                            LayerTraceback++;
-                            foreach (var transfer in tracebackNode.ExpectTransfer.TransfedState.PredictTransfers)
-                            {
-                                var segment = GetSegment(
-                                    NextPosition + 1,
-                                    transfer,
-                                    Context,
-                                    _pasrserSessionContext,
-                                    tracebackNode.ParentSegment);
-                                PredictList.Add(segment);
-                            }
-
-                            tracebackNode = tracebackNode.ExpectTransfer.TransfedState.IsTerminal ? tracebackNode.ParentSegment : null;
-                        }
-                    }
+                    FinishSegment(1, null);
                 }
             }
 
             NextPosition++;
+        }
+
+        private void FinishSegment(int positionOffset, Queue<ParserSegment> segmentQueue)
+        {
+            // Transfer inside a production
+            var predictTransfers = ExpectTransfer.TransfedState.PredictTransfers;
+            foreach (var predictTransfer in predictTransfers)
+            {
+                var segment = GetSegment(
+                    NextPosition + positionOffset,
+                    predictTransfer,
+                    Context,
+                    _pasrserSessionContext,
+                    ParentSegment);
+                PredictList.Add(segment);
+
+                segmentQueue?.Enqueue(segment);
+            }
+
+            // Leave a production
+            if (ExpectTransfer.TransfedState.IsTerminal)
+            {
+                LayerTraceback = 0;
+                var tracebackNode = ParentSegment;
+                while (tracebackNode != null)
+                {
+                    LayerTraceback++;
+                    foreach (var transfer in tracebackNode.ExpectTransfer.TransfedState.PredictTransfers)
+                    {
+                        var segment = GetSegment(
+                            NextPosition + positionOffset,
+                            transfer,
+                            Context,
+                            _pasrserSessionContext,
+                            tracebackNode.ParentSegment);
+                        PredictList.Add(segment);
+
+                        segmentQueue?.Enqueue(segment);
+                    }
+
+                    tracebackNode = tracebackNode.ExpectTransfer.TransfedState.IsTerminal ? tracebackNode.ParentSegment : null;
+                }
+            }
         }
 
         public void Release()
