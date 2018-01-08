@@ -6,6 +6,7 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
     public abstract class TransferCondition : ISyntaxElement
     {
         public abstract (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context);
+        public abstract ISyntaxElement GetThisElement(string literal, ParserContext context);
     }
 
     public class EscapeTransferCondition : TransferCondition
@@ -31,6 +32,11 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
             {
                 return (true, false, new ErrorInfo("Escape has not defined."));
             }
+        }
+
+        public override ISyntaxElement GetThisElement(string literal, ParserContext context)
+        {
+            return new EscapeTransferCondition(literal);
         }
 
         public static bool operator ==(EscapeTransferCondition condition1, EscapeTransferCondition condition2)
@@ -101,6 +107,11 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         {
             return CompareReference.GetHashCode();
         }
+
+        public override ISyntaxElement GetThisElement(string literal, ParserContext context)
+        {
+            return new StringTransferCondition(literal);
+        }
     }
 
     public class SymbolTransferCondition : TransferCondition, IParseAsSymbol
@@ -118,6 +129,11 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context)
         {
             throw new ParserInnerException(@"Parser Error: A symbol transfer cannot be transfered directly.");
+        }
+
+        public override ISyntaxElement GetThisElement(string literal, ParserContext context)
+        {
+            return new SymbolTransferCondition(context.SymbolHost.GetSymol(literal));
         }
 
         public Symbol SymbolIdentity
@@ -166,6 +182,11 @@ namespace Elecelf.Hibiki.Parser.GrammarGraph
         public override (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context)
         {
             throw new ParserInnerException(@"Parser Error: A symbol transfer cannot be transfered directly.");
+        }
+
+        public override ISyntaxElement GetThisElement(string literal, ParserContext context)
+        {
+            return _instance;
         }
     }
 }

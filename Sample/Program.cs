@@ -35,11 +35,11 @@ namespace Elecelf.Hibiki.Sample
             string production_A = @"st{pro3}ed";
             string pro1 = @"pro1-%num%*-{pro2}";
             string pro2 = @"ab|cd";
-            string pro3 = @"ef|~";
+            string pro3 = @"~";
 
             string script = @"stpro1-999-cded";
 
-            string script2 = @"sted";
+            string script2 = @"st1ed";
 
             context.AppendProduction(context.SymbolHost.GetSymol("st"), GrammarAutomata.ParseProduction(production_A, context, "pA"));
             context.AppendProduction(context.SymbolHost.GetSymol("pro1"), GrammarAutomata.ParseProduction(pro1, context, "pA"));

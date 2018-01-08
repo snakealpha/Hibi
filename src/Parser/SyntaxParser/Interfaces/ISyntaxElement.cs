@@ -8,5 +8,7 @@
         string ToString();
 
         (bool finished, bool success, ErrorInfo errorInfo) PassChar(char input, int offset, ParserContext context);
+
+        ISyntaxElement GetThisElement(string literal, ParserContext context);
     }
 }

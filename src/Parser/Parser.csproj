@@ -62,8 +62,9 @@
     <Compile Include="SyntaxParser\GrammarGraph\GrammarAutomata.cs" />
     <Compile Include="SyntaxParser\GrammarGraph\GrammarAutomataAlgorithm.cs" />
     <Compile Include="SyntaxParser\TransferConditions.cs" />
+    <Compile Include="SyntaxParser\TransferTable\Transfer.cs" />
     <Compile Include="SyntaxParser\TransferTable\TransferTable.cs" />
-    <Compile Include="SyntaxParser\TransferTable\TransferTableState.cs" />
+    <Compile Include="SyntaxParser\TransferTable\State.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

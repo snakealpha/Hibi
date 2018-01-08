@@ -5,10 +5,11 @@ namespace Elecelf.Hibiki.Parser.SyntaxParser.TransferTable
 {
     public class TransferTable : IParseable
     {
+        private uint _startStateId;
         public IState StartState { get; private set; }
 
-        public IDictionary<Symbol, IState> States { get; } = new ConcurrentDictionary<Symbol, IState>();
+        public IDictionary<uint, IState> States { get; } = new ConcurrentDictionary<uint, IState>();
 
-        public IDictionary<Symbol, ITransfer> Transfers { get; } = new ConcurrentDictionary<Symbol, ITransfer>();
+        public IDictionary<uint, OfflineState> OfflineStates { get; } = new ConcurrentDictionary<uint, OfflineState>();
     }
 }
